@@ -6,6 +6,8 @@ import numpy as np
 import nibabel as nib
 import re
 import os
+import tempfile
+import time
 import pyvista as pv
 from typing import Union, Sequence
 from pathlib import Path
@@ -32,7 +34,12 @@ def vol2surf(
     An optional argument can be provided to visualise the volume and its rendered mesh
     (plot_volnext2surf), with an interactive slider, in order to check the quality of the 
     rendering of every mesh.
-     
+    
+    Parallel processes: to avoid conflicts, subjects will be skipped if a "isrunning" tmp 
+    file exists to mark them as currently processing. The tmp file is removed at the end or 
+    replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to 
+    rerun a subject before the 1 hour (its path is printed when flagged). 
+    
     Parameters
     ----------
     inputdir : str, Path
@@ -73,6 +80,18 @@ def vol2surf(
     subindex=0
     for subid in sub_list:
         subindex=subindex+1
+        
+        #unique tmp file to avoid parallel loop conflicts
+        fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_surf.tmp")
+        if os.path.exists(fname): #if exists already, and tmp file is younger than 1h, skip subject
+            tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
+            if tmp_lifetime < 1:
+                print(f"{subid} already running (tmp file: {fname}).")
+                continue
+        else: #creates tmp
+            with open(fname, "w"):
+                pass
+        
         if not silent: 
             print(f"Creating surface meshes for {subid}... [{subindex}/{len(sub_list)}]") 
         
@@ -207,4 +226,6 @@ def vol2surf(
         else:
             if not silent: 
                 print(f"  => No volume file (.nii) found at all for {subid}.")
+        
+        os.remove(fname)  #cleanup tmp file
                 

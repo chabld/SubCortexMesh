@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd 
 import os
 import vtk
+import tempfile
+import time
 from typing import Optional, Union, Sequence
 from pathlib import Path
 from subcortexmesh import template_data_fetch
@@ -31,7 +33,12 @@ def merge_all(
     output directory as run_first_all's, naming them "*R_Cereb_first" and "*L_Cereb_first",
     and processed with subseg_getvol() and vol2surf(). See subseg_getvol()'s description 
     for guidance.
-     
+    
+    Parallel processes: to avoid conflicts, subjects will be skipped if a "isrunning" tmp 
+    file exists to mark them as currently processing. The tmp file is removed at the end or 
+    replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to 
+    rerun a subject before the 1 hour (its path is printed when flagged). 
+    
     Parameters
     ----------
     inputdir : str, Path
@@ -110,6 +117,17 @@ def merge_all(
     for subid in sub_list:
         subindex=subindex+1
         
+        #unique tmp file to avoid parallel loop conflicts
+        fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_merge.tmp")
+        if os.path.exists(fname): #if exists already, and tmp file is younger than 1h, skip subject
+            tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
+            if tmp_lifetime < 1:
+                print(f"{subid} already running (tmp file: {fname}).")
+                continue
+        else: #creates tmp
+            with open(fname, "w"):
+                pass
+        
         if not silent: 
             print(f"Creating all-aseg surfaces for {subid}... [{subindex}/{len(sub_list)}]")
         
@@ -166,6 +184,8 @@ def merge_all(
             else:
                 if not silent: 
                     print(f"=> {measure} already merged")
+        
+        os.remove(fname)  #cleanup tmp file
                     
                 
 ###################################################################

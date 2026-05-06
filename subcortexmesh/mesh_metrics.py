@@ -11,6 +11,8 @@ import pyvista as pv
 import os
 import re
 import copy
+import tempfile
+import time
 from sklearn.decomposition import PCA
 from scipy.spatial.transform import Rotation
 from typing import Optional, Union, Sequence
@@ -50,6 +52,11 @@ def mesh_metrics(
     Two optional arguments can be provided to visualise the medial curve (plot_medial_curve), 
     and later the projection (plot_projection) in order to check the quality of the medial
     curve and projection for every mesh.
+    
+    Parallel processes: to avoid conflicts, subjects will be skipped if a "isrunning" tmp 
+    file exists to mark them as currently processing. The tmp file is removed at the end or 
+    replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to 
+    rerun a subject before the 1 hour (its path is printed when flagged). 
     
     Parameters
     ----------
@@ -117,6 +124,18 @@ def mesh_metrics(
     subindex=0
     for subid in sub_list:
         subindex=subindex+1
+        
+        #unique tmp file to avoid parallel loop conflicts
+        fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_metrics.tmp")
+        if os.path.exists(fname): #if exists already, and tmp file is younger than 1h, skip subject
+            tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
+            if tmp_lifetime < 1:
+                print(f"{subid} already running (tmp file: {fname}).")
+                continue
+        else: #creates tmp
+            with open(fname, "w"):
+                pass
+        
         if not silent: 
             print(f"Computing surface metrics for {subid}... [{subindex}/{len(sub_list)}]")
         #preparing subdir
@@ -630,6 +649,8 @@ def mesh_metrics(
         else:
             if not silent: 
                 print(f"=> No mesh file (.vtk) found at all for {subid}.")
+        
+        os.remove(fname)  #cleanup tmp file
     
     if not silent: 
             print(f"Surface metrics stored to {outputdir}/surface_metrics/")

@@ -7,6 +7,8 @@ import os
 import ants
 import re
 import glob
+import tempfile
+import time
 from typing import Optional, Union
 from pathlib import Path
 from subcortexmesh import template_data_fetch
@@ -32,12 +34,17 @@ def subseg_getvol(
     
     T1 volumes are required for the coregistration, stored as [sub-ID]/mri/T1.mgz for 
     FreeSurfer and expected to be stored in the same "inputdir" path for FSL FIRST: 
-    the function will search for files containing the sub-ID and the "*T1w.nii*" suffix for 
+    the function will search for files containing the sub-ID and the "*T1w.nii*" pattern for 
     each subject.
     
-    Note for FSL cerebellar segmentation: the cerebella need to be created inside the same 
-    output directory as run_first_all's, naming them "*R_Cereb_first" and "*L_Cereb_first". 
-    It can be done as follows (do the same for `L_Cereb`):
+    Parallel processes: to avoid conflicts, subjects will be skipped if a "isrunning" tmp 
+    file exists to mark them as currently processing. The tmp file is removed at the end or 
+    replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to 
+    rerun a subject before the 1 hour (its path is printed when flagged). 
+    
+    Note for (optional) FSL cerebellar segmentation: the cerebella need to be created inside 
+    the same output directory as run_first_all's, naming them "*R_Cereb_first" and 
+    "*L_Cereb_first". It can be done as follows (do the same for `L_Cereb`):
     
     .. code-block:: bash
         
@@ -67,8 +74,7 @@ def subseg_getvol(
         The name of the template the surfaces are supposed to be matching to. For FreeSurfer
         outputs, it is 'fsaverage'. For FSL FIRST, it is 'fslfirst'.
     overwrite : bool
-        Whether files are to be overwritten or skipped if already in outputdir. 
-        Default is True.
+        Whether files are to be overwritten or skipped if already in outputdir. Default is True. 
     silent : bool
         Whether messages about the process are to be silenced. Default is False.
     """
@@ -103,6 +109,18 @@ def subseg_getvol(
         
     subindex=0
     for subid in sub_list: 
+        
+        #unique tmp file to avoid parallel loop conflicts
+        fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_vol.tmp")
+        if os.path.exists(fname): #if exists already, and tmp file is younger than 1h, skip subject
+            tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
+            if tmp_lifetime < 1:
+                print(f"{subid} already running (tmp file: {fname}).")
+                continue
+        else: #creates tmp
+            with open(fname, "w"):
+                pass
+        
         
         #subject id reformatted and limited to sub-xxx for SCM
         newsubid=re.search(pattern, subid).group(1) 
@@ -287,3 +305,5 @@ def subseg_getvol(
         
         else:
             print(f"The coregistered T1 may have failed to be computed. Expected file: {antsdir}/{seglabel}_{template}_rigid_coreg.nii.gz")
+        
+        os.remove(fname)  #cleanup tmp file
