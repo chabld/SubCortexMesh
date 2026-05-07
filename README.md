@@ -174,7 +174,7 @@ merge_all(
   silent=False)
 ```
 
-The mesh is saved in the sub_surfaces/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging:
+The mesh is saved in the sub_surfaces/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
 
 ![](figures/merged.png)
 
