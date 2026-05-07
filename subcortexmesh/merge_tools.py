@@ -8,7 +8,7 @@ import os
 import vtk
 import tempfile
 import time
-from typing import Optional, Union, Sequence
+from typing import Optional, Union, Sequence, Tuple
 from pathlib import Path
 from subcortexmesh import template_data_fetch
 
@@ -195,7 +195,8 @@ def merge_all(
 def vis_merged(
     merged_vtk: Union[str, Path, vtk.vtkPolyData], 
     cmap: str = "viridis", 
-    smooth_mesh:  Optional[int] = 0,
+    clim: Optional[Tuple[float, float]] = None,
+    smooth_mesh:  Optional[int] = 0
     ):
     """Interactive 3D viewer for a merged subcortical surface.
     
@@ -211,6 +212,8 @@ def vis_merged(
         Path to the merged .vtk file produced by merge_all() or the VTK polydata variable itself
     cmap: str
         Name of the color map to be assigned to the background volume, as listed in matplotlib's colormaps. Default is "viridis".
+    clim: Tuple, optional
+        Sequence of float stating the minimum and maximum value of the color bar. Default is minimum and maximum value.
     smooth_mesh: int, optional
         Number of iterations of cosmetic smoothing to make the surface appear smoother. Default is 0.
     """
@@ -261,10 +264,15 @@ def vis_merged(
     measure = mesh.active_scalars_name
     if measure is None:
         raise ValueError(
-            "No active scalar (surface-based metric) found in the mesh. Make sure the file was produced by merge_all()."
+            "No active scalar (surface-based value) found in the mesh. Make sure the file was produced by merge_all()."
         )
+    
+    #compute clim from the full mesh before splitting
+    scalars_data = mesh.point_data[measure]
+    if clim is None:
+        clim = [np.nanmin(scalars_data), np.nanmax(scalars_data)]
     for wm in wrapped_meshes:
-        _ = plotter.add_mesh(wm, scalars=measure, cmap=cmap)
+        _ = plotter.add_mesh(wm, scalars=measure, cmap=cmap, clim=clim, nan_color='lightgrey')
     
     # Y flipped as VTK's coord syst not following RAS
     plotter.reset_camera()
@@ -287,3 +295,244 @@ def vis_merged(
     else:
         plotter.show(title=f"{measure}")
 
+
+#####################################################################################
+######Flat 2D grid preview of all subcortical ROIs from a merged VTK surface########
+
+#Function to automatically compute orientations  
+def _compute_orientations(submeshes, cam_distance=300.0):
+    """Compute a PCA-based camera position for each submesh.
+    
+    Author: Nicolas P.M. Lavarde
+    
+    Parameters
+    ----------
+    submeshes : list of pyvista.PolyData or None
+        Each element is a centered submesh, or None for empty ROIs.
+    cam_distance : float
+        Distance from the origin at which the camera is placed along PC3.
+
+    Returns
+    -------
+    list of tuple or None
+        Same length as submeshes. Each non-None element is a PyVista
+        camera_position tuple: ((cx, cy, cz), (0, 0, 0), (ux, uy, uz)).
+    """
+    orientations = []
+    for sub in submeshes:
+        if sub is None:
+            orientations.append(None)
+            continue
+        
+        pts = sub.points
+        cov = np.cov(pts.T)
+        eigenvalues, eigenvectors = np.linalg.eigh(cov)
+        
+        # eigh returns ascending order — reverse to get descending variance
+        idx_sorted = np.argsort(eigenvalues)[::-1]
+        eigenvectors = eigenvectors[:, idx_sorted]
+        
+        # PC1 = most elongated axis (col 0), PC2 = up vector (col 1), PC3 = camera axis (col 2)
+        pc2 = eigenvectors[:, 1]
+        pc3 = eigenvectors[:, 2]
+        
+        # Ensure camera is on the positive-Z side
+        if pc3[2] < 0:
+            pc3 = -pc3
+        
+        cam_pos = tuple(pc3 * cam_distance)
+        focal_point = (0.0, 0.0, 0.0)
+        up_vector = tuple(pc2)
+        
+        orientations.append((cam_pos, focal_point, up_vector))
+
+    return orientations
+
+
+# returns a single PNG file with a grid of all ROIs from the merged mesh, 
+# each colored differently and oriented along its PCA axes. 
+
+def vis_merged_flat(
+    merged_vtk: Union[str, Path, vtk.vtkPolyData],
+    output_path: Union[str, Path] = "flat_plot.png",
+    ncols: int = 4,
+    silent: bool = False,
+    scalars: str = None,
+    cmap: str = 'viridis', 
+    clim: Optional[Tuple[float, float]] = None,
+    smooth_mesh:  Optional[int] = 0
+):
+    """Flat 2D grid preview of all subcortical ROIs from a merged VTK surface
+    
+    Reads a merged .vtk file produced by merge_all() which contains all
+    subcortical structures concatenated into a single mesh, where each ROI
+    was assigned a number ID. For each ROI, the corresponding sub-mesh is
+    extracted, centered, and placed in a 2D grid layout saved as PNG.
+    
+    Authors: Nicolas P.M. Lavarde, Charly H.A. Billaud
+    
+    Parameters
+    ----------
+    merged_vtk : str, Path, vtk.vtkPolyData
+        Path to the merged .vtk file produced by merge_all().
+    output_path : str, Path
+        Path for the output PNG file. Default is 'flat_plot_preview.png'.
+    ncols : int
+        Number of columns in the grid layout. Default is 4.
+    silent : bool
+        Whether to suppress progress messages. Default is False.
+    scalars: str
+        Name of the vertex-wise value which was assigned. Default is whatever measure was assigned
+        by mesh_metrics() ('thickness', 'curvature', or 'surfarea'). Can also be the 'roi_id' 
+        assigned by merge_all().
+    cmap: str
+        Name of the color map to be assigned to the background volume, as listed in matplotlib's colormaps. Default is "viridis".
+    clim: Tuple, optional
+        Sequence of float stating the minimum and maximum value of the color bar. Default is minimum and maximum value.
+    smooth_mesh: int, optional
+        Number of iterations of cosmetic smoothing to make the surface appear smoother. Default is 0.
+    """
+    
+    ###################################################################
+    ##########################LOAD MERGED MESH#########################
+    
+    if isinstance(merged_vtk, (str, Path)):
+        reader = vtk.vtkPolyDataReader()
+        reader.SetFileName(str(merged_vtk))
+        reader.Update()
+        mesh = pv.wrap(reader.GetOutput())
+    else:
+        mesh = pv.wrap(merged_vtk)
+    
+    if 'roi_id' not in mesh.point_data.keys():
+        raise ValueError(
+            f"'roi_id' point array not found in {merged_vtk}. "
+            "Make sure the file was produced by merge_all()."
+        )
+    
+    roi_ids = np.array(mesh.point_data['roi_id']).astype(int)
+    
+    #appearance smoother
+    if smooth_mesh is not None and smooth_mesh > 0:
+        s = vtk.vtkWindowedSincPolyDataFilter()
+        s.SetInputData(mesh)
+        s.SetNumberOfIterations(smooth_mesh)
+        s.SetPassBand(0.001)
+        s.NonManifoldSmoothingOn()
+        s.NormalizeCoordinatesOn()
+        s.Update()
+        mesh=pv.wrap(s.GetOutput())
+    
+    ###################################################################
+    ##############################DEFINE SCALARS#######################
+    
+    #default scalar is metric
+    measure = mesh.active_scalars_name
+    if measure is None:
+        raise ValueError(
+            "No active scalar (surface-based value) found in the mesh. Make sure the file was produced by merge_all().")
+    if scalars is None:
+        scalars=measure
+        scalars_data = mesh.point_data[scalars]
+    else:
+        mesh.set_active_scalars(scalars)
+        scalars_data = mesh.point_data[scalars]
+    #compute clim from the full mesh before splitting
+    if clim is None:
+        clim = [np.nanmin(scalars_data), np.nanmax(scalars_data)]
+    
+    ###################################################################
+    ######################EXTRACT ROI SUB-MESHES#######################
+    
+    submeshes = []
+    #get number of ROIs based on the available roi_id scalar (assigned by merge_all())
+    _N_ROI_MAP = {95718: 19, 82412: 17}
+    n_roi = _N_ROI_MAP.get(mesh.n_points)
+    if n_roi is None:
+        raise ValueError(
+            f"Cannot auto-detect n_roi for mesh with {mesh.n_points} vertices. "
+            "Expected 95718 (fsaverage, 19 ROIs) or 82412 (fslfirst, 17 ROIs)."
+        )
+    for i in range(n_roi):
+        mask = roi_ids == i
+        n_pts = int(mask.sum())
+        
+        if n_pts == 0:
+            if not silent:
+                print(f"  ROI {i}: no vertices found, skipping.")
+            submeshes.append(None)
+            continue
+        
+        # extract_points keeps only faces whose ALL vertices are in the mask
+        sub_ug = mesh.extract_points(mask, adjacent_cells=False)
+        sub = sub_ug.extract_surface(algorithm='dataset_surface')
+        
+        # center each structure at origin so cells don't overlap
+        centroid = sub.points.mean(axis=0)
+        sub = sub.copy()
+        sub.points -= centroid
+        
+        submeshes.append(sub)
+    
+    orientations = _compute_orientations(submeshes)
+    
+    ###################################################################
+    ##########################GRID RENDERING###########################
+    
+    nrows = int(np.ceil(n_roi / ncols))
+    
+    plotter = pv.Plotter(
+        shape=(nrows, ncols),
+        off_screen=True,
+        window_size=(ncols * 300, nrows * 300),
+    )
+    plotter.set_background("white")
+    
+    for idx in range(n_roi):
+        row = idx // ncols
+        col = idx % ncols
+        plotter.subplot(row, col)
+        
+        if submeshes[idx] is not None:
+            plotter.add_mesh(
+                submeshes[idx],
+                show_edges=False,
+                smooth_shading=True,
+                ambient=0.3,
+                diffuse=0.7,
+                #settings inherited from stat_tools
+                scalars=submeshes[idx].point_data[scalars],
+                cmap=cmap,
+                clim=clim,
+                nan_color='lightgrey',
+                show_scalar_bar=True
+            )
+            plotter.add_text(
+                f"ROI {idx}",
+                position="upper_left",
+                font_size=8,
+                color="black",
+            )
+        else:
+            plotter.add_text(
+                f"ROI {idx}\n(empty)",
+                position="upper_left",
+                font_size=8,
+                color="gray",
+            )
+
+        # orthographic view oriented along the PCA camera axis
+        plotter.camera.parallel_projection = True
+        plotter.camera_position = orientations[idx]
+        plotter.reset_camera()
+    
+    # fill unused cells (if n_roi not a multiple of ncols)
+    for idx in range(n_roi, nrows * ncols):
+        row = idx // ncols
+        col = idx % ncols
+        plotter.subplot(row, col)
+        plotter.set_background("white")
+    
+    plotter.screenshot(str(output_path))
+    if not silent:
+        print(f"Saved flat plot to: {output_path}")
