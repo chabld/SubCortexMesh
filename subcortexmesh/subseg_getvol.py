@@ -112,15 +112,15 @@ def subseg_getvol(
         
         #unique tmp file to avoid parallel loop conflicts
         fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_vol.tmp")
-        if os.path.exists(fname): #if exists already, and tmp file is younger than 1h, skip subject
+        #if exists already, and tmp file is younger than 1h, skip subject
+        if os.path.exists(fname): 
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:
                 print(f"{subid} already running (tmp file: {fname}).")
                 continue
-        else: #creates tmp
-            with open(fname, "w"):
+        #creates tmp if loop wasn't skipped
+        with open(fname, "w"):
                 pass
-        
         
         #subject id reformatted and limited to sub-xxx for SCM
         newsubid=re.search(pattern, subid).group(1) 
