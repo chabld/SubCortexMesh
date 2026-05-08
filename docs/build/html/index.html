@@ -1,0 +1,377 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SubCortexMesh &mdash; SubCortexMesh 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=67f63113" />
+      <link rel="stylesheet" type="text/css" href="_static/dark_mode_css/general.css?v=c0a7eb24" />
+      <link rel="stylesheet" type="text/css" href="_static/dark_mode_css/dark.css?v=70edf1c7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/dark_mode_js/default_dark.js?v=fd565c74"></script>
+      <script src="_static/dark_mode_js/theme_switcher.js?v=358d3910"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="subseg_getvol" href="subseg_getvol.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            SubCortexMesh
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Functions</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="subseg_getvol.html">subseg_getvol</a></li>
+<li class="toctree-l1"><a class="reference internal" href="vol2surf.html">vol2surf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surf_qcplot.html">surf_qcplot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh_metrics.html">mesh_metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="merge_tools.html">merge_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stat_tools.html">stat_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="template_data_fetch.html">template_data_fetch</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">SubCortexMesh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">SubCortexMesh</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/chabld/SubCortexMesh/blob/main/docs/source/index.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <img src="https://raw.githubusercontent.com/chabld/SubCortexMesh/main/figures/hexlogo.png" alt="logo" align="right" style="float:right; height:200px;"/>
+<section id="subcortexmesh">
+<h1>SubCortexMesh<a class="headerlink" href="#subcortexmesh" title="Link to this heading"></a></h1>
+<section id="surface-based-postprocessing-of-segmented-subcortices-in-python">
+<h2>Surface-based postprocessing of segmented subcortices in Python<a class="headerlink" href="#surface-based-postprocessing-of-segmented-subcortices-in-python" title="Link to this heading"></a></h2>
+<p>This toolbox provides commands for surface based measures of subcortical segmentations from FreeSurfer and FSL FIRST, including thickness, surface area and curvature. Depending on the segmentation algorithm, compatible subcortices are: the <strong>Thalamus</strong>, <strong>Caudate</strong>, <strong>Putamen</strong>, <strong>Pallidum</strong>, <strong>Hippocampus</strong>, <strong>Amygdala</strong>, <strong>Accumbens-area</strong>, <strong>Ventral diencephalon</strong>, <strong>Cerebellum</strong>, and the <strong>Brain-Stem</strong>.</p>
+</section>
+<section id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading"></a></h2>
+<p><img alt="" src="figures/SCM_flowchart.png" /></p>
+<p>The toolbox automatically converts a subjects directory’s subcortical segmentation volumes to 3D surface meshes. SubCortexMesh:</p>
+<ul class="simple">
+<li><p>Rigidly coregisters subject-space volumes to a template space (MNI). It solely does rotation and no interpolation to preserve subject-space dimensions.</p></li>
+<li><p>Extracts individual regions-of-interest (ROIs) as separate volumes</p></li>
+<li><p>Converts each volume to surface meshes using VTK’s Discrete Marching Cube protocol, with additional dilating+eroding and smoothing to minimise artefacts (can be disabled or lowered)</p></li>
+<li><p>Measures vertex-wise thickness (radial distance from a generated medial curve), surface area (1/3 of the area of the triangles a vertex is part of) and curvature (mean curvature).</p></li>
+<li><p>Saves descriptive statistics for each ROI in a table for each subject and metric.</p></li>
+<li><p>Aligns subject meshes and projects their vertex-wise values to a standard template-based surface, based on fsaverage/MNI305 for FreeSurfer outputs,<a class="footnote-reference brackets" href="#id3" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> and MNI152 for FSL FIRST outputs<a class="footnote-reference brackets" href="#id4" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>. The native space meshes, with their associated scalar metrics, can also be saved.</p></li>
+</ul>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<p>SubCortexMesh can be installed via pip from the GitHub directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/chabld/SubCortexMesh.git
+</pre></div>
+</div>
+<p>All SubCortexMesh computations are fully executed in Python, most functions mainly relying on the <a class="reference external" href="https://vtk.org/">VTK</a> <em>v</em>9.5.2 module. Once imported in python, the toolbox requires base template data to be downloaded. The command below is triggered by every function that needs the data. It checks for its existence and if it is not found, it will assist users so they can download it in a default or custom path:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">subcortexmesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">template_data_fetch</span>
+<span class="n">toolboxdata</span><span class="o">=</span><span class="n">template_data_fetch</span><span class="p">(</span><span class="n">template</span><span class="o">=</span><span class="s1">&#39;fsaverage&#39;</span><span class="p">)</span> <span class="c1">#or &#39;fslfirst&#39;</span>
+</pre></div>
+</div>
+</section>
+<section id="getting-started">
+<h2>Getting started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h2>
+<section id="extracting-and-coregistering-subcortical-volumes">
+<h3>Extracting and coregistering subcortical volumes<a class="headerlink" href="#extracting-and-coregistering-subcortical-volumes" title="Link to this heading"></a></h3>
+<p>The extraction of segmentation volumes is done on preprocessing subjects directories, where subcortical segmentations are available. Typically, a subject directory is the output <code class="docutils literal notranslate"><span class="pre">$SUBJECTS_DIR</span></code> for FreeSurfer’s <a class="reference external" href="https://surfer.nmr.mgh.harvard.edu/fswiki/recon-all">recon-all pipeline</a>, and a directory where <a class="reference external" href="https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#segmentation-with-run_first_all">run_first_all</a> has sent its output in FSL. SubCortexMesh finds all subjects inside the directory and extracts their subcortical segmentation volumes (“aseg.mgz” in FreeSurfer,”*all_fast_firstseg.nii.gz” in FSL). To facilitate later standardisation, those volumes are coregistered to their respective templates (fsaverage/MNI305 for FreeSurfer, MNI152 for FSL).</p>
+<p>Below is the command that automatically extracts and coregisters all subcortical volumes of a subjects directory:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">subcortexmesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">subseg_getvol</span>
+<span class="n">subseg_getvol</span><span class="p">(</span>
+  <span class="n">inputdir</span><span class="o">=</span><span class="s2">&quot;FreeSurfer_sub_directory/&quot;</span><span class="p">,</span> 
+  <span class="n">outputdir</span><span class="o">=</span><span class="s2">&quot;/my_outputdir/&quot;</span><span class="p">,</span>
+  <span class="c1">#toolboxdata=&quot;/user_path/subcortexmesh_data&quot;,</span>
+  <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
+  <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Notes:</p>
+<ul class="simple">
+<li><p>The path to the <em>toolboxdata</em> argument only needs to be specified if it was not downloaded to the default path, i.e. the user’s home directory</p></li>
+<li><p>SubCortexMesh follows the sub-*** convention for participant IDs and will only account for folders with names that contain such IDs.</p></li>
+<li><p>In FSL FIRST, optional <a class="reference external" href="https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage">cerebellar surfaces</a> also need to be named *<em>L-Cereb_first.nii.gz</em> and *<em>R-Cereb_first.nii.gz</em>.<a class="footnote-reference brackets" href="#id6" id="id5" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a></p></li>
+<li><p>The coregistration requires T1 volumes to be present for each subject: it should be stored as [sub-ID]/mri/T1.mgz for FreeSurfer and stored in the same “inputdir” path for FSL FIRST (the function will search for files containing the sub-ID and “T1w.nii” for each subject).</p></li>
+</ul>
+</section>
+<section id="converting-volumes-to-surfaces">
+<h3>Converting volumes to surfaces<a class="headerlink" href="#converting-volumes-to-surfaces" title="Link to this heading"></a></h3>
+<p><em>subseg_getvol()</em> will create a directory called “sub_volumes” inside the path given (<em>outputdir</em>). The path to sub_volumes can then be given to the following command in order to convert the volumes into surfaces:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">subcortexmesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">vol2surf</span>
+<span class="n">vol2surf</span><span class="p">(</span>
+    <span class="n">inputdir</span><span class="o">=</span><span class="s2">&quot;/my_outputdir/sub_volumes&quot;</span><span class="p">,</span>
+    <span class="n">outputdir</span><span class="o">=</span><span class="s2">&quot;/my_outputdir/&quot;</span><span class="p">,</span>
+    <span class="c1">#roilabel=[&#39;left-thalamus&#39;,&#39;right-thalamus&#39;], #if one wants to only compute specific ROIs</span>
+    <span class="c1">#dilate_erode=True,</span>
+    <span class="c1">#smoothing=15,</span>
+    <span class="n">plot_volnext2surf</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">silent</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>The <em>plot_volnext2surf()</em> argument is False by default, but allows users to check if they are satisfied with the resulting mesh. Below is an example with a left thalamus: A) shows the volume and the surface created from the former superimposed, B) the voxel-based volume, C) the vertex-wise surface (with VTK’ <a class="reference external" href="https://vtk.org/doc/nightly/html/classvtkDiscreteMarchingCubes.html">discrete marching cubes</a> method, no smoothing), D) the surface after dilation+erosion and smoothing.</p>
+<p><img alt="" src="figures/subseg_getvol_vol2surf.png" /></p>
+<p>Similarly, <em>vol2surf()</em> will create a directory called “sub_surfaces” inside the given outputdir.</p>
+</section>
+<section id="visualising-converted-surfaces-meshes">
+<h3>Visualising converted surfaces meshes<a class="headerlink" href="#visualising-converted-surfaces-meshes" title="Link to this heading"></a></h3>
+<p>The surfaces stored in “sub_surfaces” can also be plotted together on top of a subject’s corresponding volume with the surf_qcplot() function. Because the surfaces are based on a volume rigidly coregistered to fsaverage, the surfaces will match a volume generated with subseg_getvol(), i.e. “sub_volumes/sub-[id]/ants_coreg/T1_[template]_rigid_coreg.nii.gz” (or any volume likewise coregistered):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">subcortexmesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">surf_qcplot</span>
+<span class="n">surf_qcplot</span><span class="p">(</span>
+    <span class="n">volpath</span><span class="o">=</span><span class="s2">&quot;/my_outputdir/sub_volumes/sub-[id]/ants_coreg/T1_fsaverage_rigid_coreg.nii.gz&quot;</span><span class="p">,</span>
+    <span class="n">surfdir</span><span class="o">=</span><span class="s2">&quot;/my_outputdir/sub_surfaces/sub-[id]&quot;</span><span class="p">,</span>
+    <span class="n">vol_color_map</span><span class="o">=</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span>
+    <span class="n">outline_color_map</span> <span class="o">=</span> <span class="s2">&quot;tab20&quot;</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="" src="figures/surf_qcplot.png" /></p>
+<p>Since regions will have been inflated and smoothed by default to minimise graphical artefacts (e.g. hanging sparse voxels, sharp mesh spikes), the boundaries naturally appear slightly wider than their original anatomy and overlapping. Note that because the surfaces are processed by SubCortexMesh entirely separately, the visual overlap has no effect on later metrics values. In any event, this can be run on surfaces produced with dilate_erode=False.</p>
+</section>
+<section id="computing-surface-based-metrics">
+<h3>Computing surface-based metrics<a class="headerlink" href="#computing-surface-based-metrics" title="Link to this heading"></a></h3>
+<p>The path to sub_surfaces/ can then be given to the following command in order to compute mesh-wise metrics:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">subcortexmesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">mesh_metrics</span>
+<span class="n">mesh_metrics</span><span class="p">(</span>
+  <span class="n">inputdir</span><span class="o">=</span><span class="s2">&quot;/my_outputdir/sub_surfaces&quot;</span><span class="p">,</span>
+  <span class="n">outputdir</span><span class="o">=</span><span class="s2">&quot;/my_outputdir/&quot;</span><span class="p">,</span> 
+  <span class="c1">#toolboxdata=&quot;/user_path/subcortexmesh_data&quot;,</span>
+  <span class="n">template</span><span class="o">=</span><span class="s1">&#39;fsaverage&#39;</span><span class="p">,</span>
+  <span class="n">metric</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;thickness&#39;</span><span class="p">,</span><span class="s1">&#39;surfarea&#39;</span><span class="p">,</span><span class="s1">&#39;curvature&#39;</span><span class="p">],</span> <span class="c1">#default, can also be one string</span>
+  <span class="c1">#roilabel=[&#39;left-thalamus&#39;,&#39;right-thalamus&#39;], #if one wants to only compute specific ROIs</span>
+  <span class="n">smooth</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">],</span> <span class="c1">#FMHW smoothing for: thickness, surface area, curvature</span>
+  <span class="n">plot_medial_curve</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+  <span class="n">plot_projection</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+  <span class="n">native_meshes</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+  <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+  <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The measure will create a “surface_metrics/” directory in the <em>outputdir</em>. The <em>native_meshes</em> argument gives the option to also save .vtk surface meshes in native space, containing the scalars for each metric.</p>
+<p>mesh_metrics() also saves native summary statistics tables in each subject directory. E.g., surface_metrics/sub-xxx/surfarea_stats.txt:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head text-left"><p>label</p></th>
+<th class="head text-left"><p>mean</p></th>
+<th class="head text-left"><p>sd</p></th>
+<th class="head text-left"><p>min</p></th>
+<th class="head text-left"><p>max</p></th>
+<th class="head text-left"><p>range</p></th>
+<th class="head text-left"><p>n_vert</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-left"><p>left-accumbens-area</p></td>
+<td class="text-left"><p>0.683</p></td>
+<td class="text-left"><p>0.205</p></td>
+<td class="text-left"><p>0.158</p></td>
+<td class="text-left"><p>1.242</p></td>
+<td class="text-left"><p>1.084</p></td>
+<td class="text-left"><p>806</p></td>
+</tr>
+<tr class="row-odd"><td class="text-left"><p>right-accumbens-area</p></td>
+<td class="text-left"><p>0.677</p></td>
+<td class="text-left"><p>0.205</p></td>
+<td class="text-left"><p>0.184</p></td>
+<td class="text-left"><p>1.146</p></td>
+<td class="text-left"><p>0.962</p></td>
+<td class="text-left"><p>886</p></td>
+</tr>
+<tr class="row-even"><td class="text-left"><p>left-amygdala</p></td>
+<td class="text-left"><p>0.685</p></td>
+<td class="text-left"><p>0.199</p></td>
+<td class="text-left"><p>0.159</p></td>
+<td class="text-left"><p>1.254</p></td>
+<td class="text-left"><p>1.095</p></td>
+<td class="text-left"><p>1288</p></td>
+</tr>
+<tr class="row-odd"><td class="text-left"><p>…</p></td>
+<td class="text-left"><p></p></td>
+<td class="text-left"><p></p></td>
+<td class="text-left"><p></p></td>
+<td class="text-left"><p></p></td>
+<td class="text-left"><p></p></td>
+<td class="text-left"><p></p></td>
+</tr>
+</tbody>
+</table>
+<p>The plotting arguments are also False by default and allow users to check the computation process. The medial curve, the line crossing through the centre of the mesh (A) is fundamental to the thickness measure, as it is a measure of radial distance between the medial curve and the outer surface. It is also used to align the subject-space and template-space mesh further. Likewise, plotting the subject surface (B) and its template equivalent (C) shows how accurate the standardisation was.</p>
+<p><img alt="" src="figures/medialcurve_standardization.png" /></p>
+</section>
+<section id="merging-all-surfaces">
+<h3>Merging all surfaces<a class="headerlink" href="#merging-all-surfaces" title="Link to this heading"></a></h3>
+<p>It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This is what the following command accomplishes, subject-per-subject (provided all subcortical meshes have been created, including the cerebella for FSL FIRST, cf. footnote 3):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">subcortexmesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">merge_all</span>
+<span class="n">merge_all</span><span class="p">(</span>
+  <span class="n">inputdir</span><span class="o">=</span><span class="s2">&quot;/my_outputdir/surface_metrics/,</span>
+  <span class="c1">#toolboxdata=&quot;/user_path/subcortexmesh_data&quot;,</span>
+  <span class="n">template</span><span class="o">=</span><span class="s1">&#39;fsaverage&#39;</span><span class="p">,</span>
+  <span class="n">plot_merged</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+  <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
+  <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The mesh is saved in the sub_surfaces/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:</p>
+<p><img alt="" src="figures/merged.png" /></p>
+</section>
+<section id="statistical-analyses">
+<h3>Statistical analyses<a class="headerlink" href="#statistical-analyses" title="Link to this heading"></a></h3>
+<p>Users can run statistical analyses on the surface-based metrics with any potential software that can work with .vtk meshes and read their metrics scalars. SubCortexMesh provides a small wrapper for <a class="reference external" href="https://brainstat.readthedocs.io/en/master/python/tutorials/tutorial_1.html#python-tutorial1">BrainStat’s SLM analysis tools</a>, which fit linear or linear mixed models with surface-based values.</p>
+<p>The slm_analysis() function facilitates the process of collating surface data by reading scalars from every surface available with a (set of) selected region(s) and one metric, and appending them into a single numpy array (N subjects x V vertices). The collated meshes are ordered alphanumerically according to the subject IDs of the surface_metrics/ subfolders, so users need to make sure their model/contrast variables match that order too.</p>
+<p>The other arguments are that of the SLM function. Here is an example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brainstat.stats.terms</span><span class="w"> </span><span class="kn">import</span> <span class="n">FixedEffect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">subcortexmesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">slm_model</span><span class="p">,</span> <span class="n">slm_plot</span>
+<span class="c1">#hypothetical behavioural data </span>
+<span class="n">beh_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;participants.tsv&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">beh_data</span> <span class="o">=</span> <span class="n">beh_data</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">])</span>
+<span class="c1">#prepare model as per BrainStat&#39;s terms system</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">FixedEffect</span><span class="p">(</span><span class="n">beh_data</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">])</span> 
+<span class="n">contrast</span> <span class="o">=</span> <span class="n">beh_data</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]</span>
+<span class="c1">#Testing the effect of age on left-thalamus thickness</span>
+<span class="n">slm_model</span> <span class="o">=</span> <span class="n">slm_analysis</span><span class="p">(</span>
+    <span class="n">inputdir</span><span class="o">=</span><span class="s2">&quot;surface_metrics/&quot;</span><span class="p">,</span>
+    <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;thickness&#39;</span><span class="p">,</span>
+    <span class="n">roilabel</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;left-thalamus&#39;</span><span class="p">,</span><span class="s1">&#39;right-thalamus&#39;</span><span class="p">],</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+    <span class="n">contrast</span><span class="o">=</span><span class="n">contrast</span><span class="p">,</span>
+    <span class="n">correction</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;fdr&quot;</span><span class="p">,</span> <span class="s2">&quot;rft&quot;</span><span class="p">],</span>
+    <span class="n">cluster_threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">smooth</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="c1">#optional FMHW smoothing of the metric values </span>
+    <span class="n">sub_list</span><span class="o">=</span><span class="n">beh_data</span><span class="p">[</span><span class="s1">&#39;participant_id&#39;</span><span class="p">]</span> <span class="c1">#optional inclusion list to avoid mismatching model and surface data</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Once the analysis is complete, the outputted cluster maps in the SLM object (here slm_model) can be visualised as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">slm_plot</span><span class="p">(</span>
+  <span class="n">slm</span><span class="o">=</span><span class="n">slm_model</span><span class="p">,</span> 
+  <span class="n">stat</span><span class="o">=</span><span class="s1">&#39;clusters&#39;</span><span class="p">,</span>
+  <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;Blues&#39;</span><span class="p">,</span>
+  <span class="n">threshold</span><span class="o">=</span> <span class="mf">.05</span><span class="p">,</span>
+  <span class="n">smooth_mesh</span><span class="o">=</span><span class="mi">10</span> <span class="c1">#cosmetic mesh smoothing</span>
+  <span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="" src="figures/rft_cluster_ageeffect.png" /></p>
+<p>Other options for the “stat” argument include:</p>
+<ul class="simple">
+<li><p>‘t’ for the t-statistics map</p></li>
+<li><p>‘t_fdr’ for the t-statistics maps filtered via false discovery rate (FDR) significance (use threshold argument)</p></li>
+<li><p>‘t_rft’ for the t-statistics maps  filtered based on significance of random field theory (RFT) cluster-wise p-values (use threshold argument)</p></li>
+<li><p>‘p_fdr’ for the FDR-corrected p-value map</p></li>
+<li><p>‘p_rft’ for the p-values filtered based on significance of RFT cluster-wise p-values (use threshold argument)</p></li>
+</ul>
+<p>More advanced sets of analysis and plotting tools, including BrainStat’s SLM as well as threshold-free cluster enhancement cluster analyses, are available in the R package <a class="reference external" href="https://github.com/CogBrainHealthLab/VertexWiseR">VertexWiseR</a>, which is able to <a class="reference external" href="https://cogbrainhealthlab.github.io/VertexWiseR/articles/VertexWiseR_surface_extraction.html">extract</a> and <a class="reference external" href="https://cogbrainhealthlab.github.io/VertexWiseR/articles/VertexWiseR_Example_3.html">analyse</a> outputs from SubCortexMesh.</p>
+</section>
+</section>
+</section>
+<hr class="footnotes docutils" />
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<p>The fsaverage/MNI305 surface-based templates for each ROI have been produced by using SubCortexMesh’s own functions (subseg_getvol(), vol2surf()) with default parameters, on the fsaverage template’s own aseg.mgz in FreeSurfer 7.4.1 ($FREESURFER_HOME/subjects/fsaverage/mri/aseg.mgz).</p>
+</aside>
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<p>The fslfirst/MNI152 surface-based templates for each ROI have also been produced by using SubCortexMesh’s own functions (subseg_getvol(), vol2surf()) with the same parameters (except smoothing=20). The segmentations volumes were obtained using FSL v.6.0.6’s own probabilistic models (.bmv files in $FSLDIR/data/first/models_336_bin/) on the standard MNI 152 1mm T1w volume ($FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz). Cerebellar meshes were produced using <a class="reference external" href="https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage">run_first</a>, with “-n 40” modes, using the putamen intensities to normalise its intensity sample as recommended by the latter’s documentation.</p>
+</aside>
+<aside class="footnote brackets" id="id6" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<p>Cerebellar segmentations can be done in FSL with the following commands (do the same for <code class="docutils literal notranslate"><span class="pre">L_Cereb</span></code>): <br>
+<code class="docutils literal notranslate"><span class="pre">first_flirt</span> <span class="pre">[subject's</span> <span class="pre">T1file]</span> <span class="pre">&quot;[subject's</span> <span class="pre">subdirectory]/[sub-id]&quot;</span> <span class="pre">-cort</span></code> <br>
+<code class="docutils literal notranslate"><span class="pre">run_first</span> <span class="pre">-i</span> <span class="pre">[subject's</span> <span class="pre">T1file]</span></code> <br>
+<code class="docutils literal notranslate"><span class="pre">-t</span> <span class="pre">&quot;[subject's</span> <span class="pre">subdirectory]/[sub-id_cort.mat]&quot;</span></code> <br>
+<code class="docutils literal notranslate"><span class="pre">-n</span> <span class="pre">40</span></code> <br>
+<code class="docutils literal notranslate"><span class="pre">-o</span> <span class="pre">&quot;[subject's</span> <span class="pre">subdirectory]/[sub-id]-R_Cereb_first&quot;</span></code> <br>
+<code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">&quot;${FSLDIR}/data/first/models_336_bin/intref_puta/R_Cereb.bmv&quot;</span></code> <br>
+<code class="docutils literal notranslate"><span class="pre">-intref</span> <span class="pre">&quot;${FSLDIR}/data/first/models_336_bin/05mm/R_Puta_05mm.bmv&quot;</span></code> <br><br>
+The putamen used as the intensity reference is what is indicated by <a class="reference external" href="https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage">FSL FIRST’s documentation</a> and 40 is just the number of modes used for most ROIs.</p>
+</aside>
+</aside>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Functions</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="subseg_getvol.html">subseg_getvol</a></li>
+<li class="toctree-l1"><a class="reference internal" href="vol2surf.html">vol2surf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surf_qcplot.html">surf_qcplot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh_metrics.html">mesh_metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="merge_tools.html">merge_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stat_tools.html">stat_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="template_data_fetch.html">template_data_fetch</a></li>
+</ul>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="subseg_getvol.html" class="btn btn-neutral float-right" title="subseg_getvol" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Cognitive and Brain Health Laboratory - Nanyang Technological University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

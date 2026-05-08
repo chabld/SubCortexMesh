@@ -1,0 +1,424 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>subcortexmesh.subseg_getvol &mdash; SubCortexMesh 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=67f63113" />
+      <link rel="stylesheet" type="text/css" href="../../_static/dark_mode_css/general.css?v=c0a7eb24" />
+      <link rel="stylesheet" type="text/css" href="../../_static/dark_mode_css/dark.css?v=70edf1c7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/dark_mode_js/default_dark.js?v=fd565c74"></script>
+      <script src="../../_static/dark_mode_js/theme_switcher.js?v=358d3910"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            SubCortexMesh
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Functions</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../subseg_getvol.html">subseg_getvol</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../vol2surf.html">vol2surf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../surf_qcplot.html">surf_qcplot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mesh_metrics.html">mesh_metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../merge_tools.html">merge_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../stat_tools.html">stat_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../template_data_fetch.html">template_data_fetch</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SubCortexMesh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">subcortexmesh.subseg_getvol</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for subcortexmesh.subseg_getvol</h1><div class="highlight"><pre>
+<span></span><span class="c1">#####################################################################################</span>
+<span class="c1">##############getting subcortical volumes from subcortical segmentations#############</span>
+
+<span class="c1">#Currently compatible with FreeSurfer&#39;s ASeg and FSL&#39;s FIRST segmentation outputs</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ants</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">glob</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">subcortexmesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">template_data_fetch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+                            
+<div class="viewcode-block" id="subseg_getvol">
+<a class="viewcode-back" href="../../subseg_getvol.html#subcortexmesh.subseg_getvol.subseg_getvol">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">subseg_getvol</span><span class="p">(</span>
+    <span class="n">inputdir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="n">outputdir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="n">template</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">toolboxdata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">silent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extracting and coregistering subcortical volumes from a cohort&#39;s subcortical volumes</span>
+<span class="sd">    </span>
+<span class="sd">    This function reads through subjects of a FreeSurfer or FSL FIRST output preprocessing </span>
+<span class="sd">    directory and identifies subcortical segmentation volumes. Typically, such volumes are </span>
+<span class="sd">    &quot;aseg.mgz&quot; for FreeSurfer, and &quot;*all_fast_firstseg&quot; for FSL FIRST (plus, if applicable, </span>
+<span class="sd">    &quot;*Cereb_first.nii.gz&quot;). For each subject, subseg_getvol() uses antspy to coregister the </span>
+<span class="sd">    segmentation volumes to their respective template space  (fsaverage/MNI305 for FreeSurfer, </span>
+<span class="sd">    MNI152 for FSL), and then extracts each subcortical region-of-interest separately. </span>
+<span class="sd">    </span>
+<span class="sd">    T1 volumes are required for the coregistration, stored as [sub-ID]/mri/T1.mgz for </span>
+<span class="sd">    FreeSurfer and expected to be stored in the same &quot;inputdir&quot; path for FSL FIRST: </span>
+<span class="sd">    the function will search for files containing the sub-ID and the &quot;*T1w.nii*&quot; pattern for </span>
+<span class="sd">    each subject.</span>
+<span class="sd">    </span>
+<span class="sd">    Parallel processes: to avoid conflicts, subjects will be skipped if a &quot;isrunning&quot; tmp </span>
+<span class="sd">    file exists to mark them as currently processing. The tmp file is removed at the end or </span>
+<span class="sd">    replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to </span>
+<span class="sd">    rerun a subject before the 1 hour (its path is printed when flagged). </span>
+<span class="sd">    </span>
+<span class="sd">    Note for (optional) FSL cerebellar segmentation: the cerebella need to be created inside </span>
+<span class="sd">    the same output directory as run_first_all&#39;s, naming them &quot;*R_Cereb_first&quot; and </span>
+<span class="sd">    &quot;*L_Cereb_first&quot;. It can be done as follows (do the same for `L_Cereb`):</span>
+<span class="sd">    </span>
+<span class="sd">    .. code-block:: bash</span>
+<span class="sd">        </span>
+<span class="sd">        first_flirt [subject T1file] &quot;[subject_directory]/[sub-id]&quot; -cort</span>
+<span class="sd">        run_first -i [subject T1file] \\</span>
+<span class="sd">            -t &quot;[subject_directory]/[sub-id_cort.mat]&quot; \\</span>
+<span class="sd">            -n 40 \\</span>
+<span class="sd">            -o &quot;[subject_directory]/[sub-id]-R_Cereb_first&quot; \\</span>
+<span class="sd">            -m &quot;${FSLDIR}/data/first/models_336_bin/intref_puta/R_Cereb.bmv&quot; \\</span>
+<span class="sd">            -intref &quot;${FSLDIR}/data/first/models_336_bin/05mm/R_Puta_05mm.bmv&quot;    </span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    inputdir : str, Path</span>
+<span class="sd">        The path to a directory containing each individual subject&#39;s directory with</span>
+<span class="sd">        preprocessing data inside. For FreeSurfer, typically the $SUBJECTS_DIR given </span>
+<span class="sd">        to the recon-all pipeline. For FSL, a directory with one subdirectory per </span>
+<span class="sd">        subject, each receiving its output from run_first_all.</span>
+<span class="sd">    outputdir : str, Path</span>
+<span class="sd">        The path where subcortical volumes will be saved (creates the &quot;sub_volumes&quot; </span>
+<span class="sd">        directory).</span>
+<span class="sd">    toolboxdata : str, Path, optional</span>
+<span class="sd">        The path of the &quot;subcortexmesh_data&quot; package data directory. The  default path </span>
+<span class="sd">        is assumed to be the user&#39;s home directory (pathlib&#39;s Path.home()). Users will </span>
+<span class="sd">        be prompted to download it if not found.</span>
+<span class="sd">    template: str</span>
+<span class="sd">        The name of the template the surfaces are supposed to be matching to. For FreeSurfer</span>
+<span class="sd">        outputs, it is &#39;fsaverage&#39;. For FSL FIRST, it is &#39;fslfirst&#39;.</span>
+<span class="sd">    overwrite : bool</span>
+<span class="sd">        Whether files are to be overwritten or skipped if already in outputdir. Default is True. </span>
+<span class="sd">    silent : bool</span>
+<span class="sd">        Whether messages about the process are to be silenced. Default is False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">#template data is needed</span>
+    <span class="n">toolboxdata</span><span class="o">=</span><span class="n">template_data_fetch</span><span class="p">(</span><span class="n">datapath</span><span class="o">=</span><span class="n">toolboxdata</span><span class="p">,</span> <span class="n">template</span> <span class="o">=</span> <span class="n">template</span><span class="p">)</span>
+    
+    <span class="c1">#file labelling norm </span>
+    <span class="k">if</span> <span class="n">template</span><span class="o">==</span><span class="s1">&#39;fsaverage&#39;</span><span class="p">:</span>
+        <span class="n">seglabel</span><span class="o">=</span><span class="s1">&#39;aseg&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">seglabel</span><span class="o">=</span><span class="n">template</span>
+    
+    <span class="c1">#other paths checks</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s2">&quot;Subjects directory not found. Please verify the path provided as inputdir.&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writing the </span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_volumes directory...&quot;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_volumes&quot;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+      
+    <span class="c1">#get ROI indices into an array</span>
+    <span class="c1">#the aseg table was extracted using mri_segstats --seg on aseg.mgz, 7.4.1&#39;s $FREESURFER_HOME/subjects/fsaverage/mri/aseg.mgz</span>
+    <span class="c1">#the fslfirst table also used mri_segstats, on a .nii volume combining *all_fast_firstseg and L_Cereb_first, and R_Cereb_first, segmented from $FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz. </span>
+    <span class="c1">#indices are in the second column (from lines with no #) printed</span>
+    <span class="n">roi_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">toolboxdata</span><span class="si">}</span><span class="s2">/template_data/</span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">seglabel</span><span class="si">}</span><span class="s2">_labels.txt&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)})</span>
+    
+    <span class="c1">#list subs (1st depth of inputdir, and only counted as sub folders with the right &quot;sub-xxx&quot; pattern)</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(sub-[^_]+)&#39;</span>
+    <span class="n">sub_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">next</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">inputdir</span><span class="p">))[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">f</span><span class="p">)]</span>
+    <span class="n">sub_list</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>     
+        
+    <span class="n">subindex</span><span class="o">=</span><span class="mi">0</span>
+    <span class="k">for</span> <span class="n">subid</span> <span class="ow">in</span> <span class="n">sub_list</span><span class="p">:</span> 
+        
+        <span class="c1">#unique tmp file to avoid parallel loop conflicts</span>
+        <span class="n">fname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">_isrunning_vol.tmp&quot;</span><span class="p">)</span>
+        <span class="c1">#if exists already, and tmp file is younger than 1h, skip subject</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fname</span><span class="p">):</span> 
+            <span class="n">tmp_lifetime</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getmtime</span><span class="p">(</span><span class="n">fname</span><span class="p">))</span> <span class="o">/</span> <span class="mi">3600</span>
+            <span class="k">if</span> <span class="n">tmp_lifetime</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> already running (tmp file: </span><span class="si">{</span><span class="n">fname</span><span class="si">}</span><span class="s2">).&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+        <span class="c1">#creates tmp if loop wasn&#39;t skipped</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">):</span>
+                <span class="k">pass</span>
+        
+        <span class="c1">#subject id reformatted and limited to sub-xxx for SCM</span>
+        <span class="n">newsubid</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">subid</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> 
+            
+        <span class="n">subindex</span><span class="o">=</span><span class="n">subindex</span><span class="o">+</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processing </span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> ... [</span><span class="si">{</span><span class="n">subindex</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sub_list</span><span class="p">)</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+        
+        <span class="c1">#####################################################################################</span>
+        <span class="c1">##################Coregistration of subject&#39;s ROI to template#$$#####################</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">/mri/aseg.mgz&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">template</span><span class="o">==</span><span class="s1">&#39;fsaverage&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> has no aseg.mgz file in its mri/ directory.&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">/*all_fast_firstseg.nii.gz&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">template</span><span class="o">==</span><span class="s1">&#39;fslfirst&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> has no *all_fast_firstseg.nii.gz file in the subject directory.&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+        
+        <span class="c1">#will make a inputdirectory called &quot;ants&quot; in the freesurfer output for the warped volumes for tidiness</span>
+        <span class="n">antsdir</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_volumes/</span><span class="si">{</span><span class="n">newsubid</span><span class="si">}</span><span class="s2">/ants_coreg&quot;</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1">#check if coregistration done already</span>
+        <span class="n">segvol</span><span class="o">=</span><span class="kc">None</span> <span class="c1">#default in case coregistration fails</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">seglabel</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">_rigid_coreg.nii.gz&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">overwrite</span><span class="p">:</span>
+            <span class="c1">#resample subject&#39;s own segmentations to fsaverage space for alignment</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Coregistering </span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">&#39;s segmentations to the </span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2"> template before volumes are extracted...&quot;</span><span class="p">)</span>
+                
+            <span class="c1">#For FreeSurfer, T1.mgz converted to nii.gz as ANTS uses those</span>
+            <span class="k">if</span> <span class="n">template</span><span class="o">==</span><span class="s1">&#39;fsaverage&#39;</span><span class="p">:</span>
+                <span class="n">nib</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">/mri/aseg.mgz&quot;</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/aseg.nii.gz&quot;</span><span class="p">)</span>
+                <span class="n">nib</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">/mri/T1.mgz&quot;</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/T1.nii.gz&quot;</span><span class="p">)</span>
+                <span class="n">subvol</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/aseg.nii.gz&quot;</span>
+                <span class="n">T1vol</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/T1.nii.gz&quot;</span>
+                <span class="c1">#template imported from 7.4.1&#39;s $FREESURFER_HOME/subjects/fsaverage/mri/T1.mgz</span>
+                <span class="n">templatevol</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">toolboxdata</span><span class="si">}</span><span class="s2">/template_data/fsaverage/T1.mgz&quot;</span>  
+            
+            <span class="c1">#For FSL, since data tree is not standard, T1 is searched for in the inputdir or</span>
+            <span class="c1">#1st depth subdirectories. The first one to be found is used</span>
+            <span class="k">if</span> <span class="n">template</span><span class="o">==</span><span class="s1">&#39;fslfirst&#39;</span><span class="p">:</span>
+                <span class="n">subvol</span><span class="o">=</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/*</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">*all_fast_firstseg.nii.gz&quot;</span><span class="p">)</span> <span class="ow">or</span> \
+                    <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/*/*</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">*all_fast_firstseg.nii.gz&quot;</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">subvol</span> <span class="o">!=</span> <span class="p">[]:</span> 
+                    <span class="n">subvol</span><span class="o">=</span><span class="n">subvol</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> has no segmentation file (*all_fast_firstseg.nii.gz) file in inputdir.&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                
+                <span class="n">T1vol</span><span class="o">=</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/*</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">*T1w.nii*&quot;</span><span class="p">)</span> <span class="ow">or</span> \
+                    <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/*/*</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">*T1w.nii*&quot;</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">T1vol</span> <span class="o">!=</span> <span class="p">[]:</span>
+                    <span class="n">T1vol</span><span class="o">=</span><span class="n">T1vol</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> has no T1w file (*T1w.nii*) file in inputdir.&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                
+                <span class="n">templatevol</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">toolboxdata</span><span class="si">}</span><span class="s2">/template_data/fslfirst/MNI152_T1_1mm_brain.nii.gz&quot;</span>
+                <span class="c1">#If present, will include cerebellar volumes</span>
+                <span class="n">cerebvol</span><span class="o">=</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/*</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">*Cereb_first.nii*&quot;</span><span class="p">)</span> <span class="ow">or</span> \
+                    <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/*/*</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">*Cereb_first.nii*&quot;</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">cerebvol</span> <span class="o">!=</span> <span class="p">[]:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Cerebellar volumes found. Including their segmentations...&#39;</span><span class="p">)</span>
+                    
+                    <span class="c1">#FSL&#39;s masking out of cerebellar ROIs (nibabel way is faster)</span>
+                    <span class="c1">#max_args = &quot; &quot;.join([f&quot;-max {f}&quot; for f in cerebvol]) #depends on whether 1 or 2 are present</span>
+                    <span class="c1">#_ = os.system(f&quot;fslmaths {subvol} {max_args} {os.path.dirname(subvol)}/all_fast_firstseg_wcereb.nii.gz&quot;)</span>
+                    <span class="c1">#subvol=f&quot;{os.path.dirname(subvol)}/all_fast_firstseg_wcereb.nii.gz&quot;</span>
+                    
+                    <span class="c1">#Merges cerebellar volumes to the main segmentation volume</span>
+                    <span class="n">subvol_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">subvol</span><span class="p">)</span>
+                    <span class="n">combined</span> <span class="o">=</span> <span class="n">subvol_img</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">()</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">cerebvol</span><span class="p">:</span>
+                        <span class="n">combined</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">combined</span><span class="p">,</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">())</span>
+                    
+                    <span class="c1">#header data from cerebellar segmentations differs, so needs reformatting</span>
+                    <span class="n">combined</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">combined</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+                    <span class="n">clean_header</span> <span class="o">=</span> <span class="n">subvol_img</span><span class="o">.</span><span class="n">header</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="n">clean_header</span><span class="o">.</span><span class="n">set_data_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+                    <span class="n">clean_header</span><span class="p">[</span><span class="s1">&#39;scl_slope&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+                    <span class="n">clean_header</span><span class="p">[</span><span class="s1">&#39;scl_inter&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                    
+                    <span class="n">subvol</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">subvol</span><span class="p">)</span><span class="si">}</span><span class="s2">/all_fast_firstseg_wcereb.nii.gz&quot;</span>
+                    <span class="n">nib</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">(</span><span class="n">combined</span><span class="p">,</span> <span class="n">subvol_img</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="n">subvol_img</span><span class="o">.</span><span class="n">header</span><span class="p">),</span> <span class="n">subvol</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">T1vol</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">):</span>
+                 <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No T1 .nii file found for &#39;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">&#39;. It is needed for the coregistration.&quot;</span><span class="p">)</span> 
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subvol</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No subcortical segmentation file found for &#39;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span> 
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1">#register subject&#39;s T1 to faverage, and use that warp to register segmentations</span>
+                <span class="c1">#apply rigid (-t r) transformation to preserve actual size of ROI</span>
+                <span class="n">fixedT1</span><span class="o">=</span><span class="n">ants</span><span class="o">.</span><span class="n">image_read</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">templatevol</span><span class="p">,</span> <span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+                <span class="n">movingT1</span><span class="o">=</span><span class="n">ants</span><span class="o">.</span><span class="n">image_read</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">T1vol</span><span class="p">,</span> <span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+                <span class="n">mytx</span><span class="o">=</span><span class="n">ants</span><span class="o">.</span><span class="n">registration</span><span class="p">(</span><span class="n">fixed</span><span class="o">=</span><span class="n">fixedT1</span><span class="p">,</span> <span class="n">moving</span><span class="o">=</span><span class="n">movingT1</span><span class="p">,</span> <span class="n">type_of_transform</span><span class="o">=</span><span class="s2">&quot;Rigid&quot;</span><span class="p">,</span> <span class="n">outprefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/T1_to_template_rigid&quot;</span><span class="p">)</span>
+                <span class="n">movingaseg</span><span class="o">=</span><span class="n">ants</span><span class="o">.</span><span class="n">image_read</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">subvol</span><span class="p">,</span> <span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+                <span class="c1">#applying transformation matrix on the segmentation volume</span>
+                <span class="n">warpedimg</span><span class="o">=</span><span class="n">ants</span><span class="o">.</span><span class="n">apply_transforms</span><span class="p">(</span><span class="n">fixed</span><span class="o">=</span><span class="n">fixedT1</span><span class="p">,</span> <span class="n">moving</span><span class="o">=</span><span class="n">movingaseg</span><span class="p">,</span> <span class="n">transformlist</span><span class="o">=</span><span class="n">mytx</span><span class="p">[</span><span class="s1">&#39;fwdtransforms&#39;</span><span class="p">],</span> <span class="n">interpolator</span><span class="o">=</span><span class="s2">&quot;multiLabel&quot;</span><span class="p">)</span>
+                <span class="n">_</span> <span class="o">=</span> <span class="n">ants</span><span class="o">.</span><span class="n">image_write</span><span class="p">(</span><span class="n">warpedimg</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">seglabel</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">_rigid_coreg.nii.gz&quot;</span><span class="p">)</span>
+                <span class="c1">#Save a coregistered T1 too for later surface-to-T1 matching</span>
+                <span class="n">warpedT1</span> <span class="o">=</span> <span class="n">ants</span><span class="o">.</span><span class="n">apply_transforms</span><span class="p">(</span><span class="n">fixed</span><span class="o">=</span><span class="n">fixedT1</span><span class="p">,</span> <span class="n">moving</span><span class="o">=</span><span class="n">movingT1</span><span class="p">,</span>
+                <span class="n">transformlist</span><span class="o">=</span><span class="n">mytx</span><span class="p">[</span><span class="s1">&#39;fwdtransforms&#39;</span><span class="p">],</span> <span class="n">interpolator</span><span class="o">=</span><span class="s2">&quot;linear&quot;</span><span class="p">)</span>
+                <span class="n">ants</span><span class="o">.</span><span class="n">image_write</span><span class="p">(</span><span class="n">warpedT1</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/T1_</span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">_rigid_coreg.nii.gz&quot;</span><span class="p">)</span>
+                
+                <span class="c1">#to visualise:</span>
+                <span class="c1">#os.system(f&quot;freeview -v {templatevol} {antsdir}/{seglabel}_{template}_rigid_coreg.nii.gz:colormap=LUT&quot;)</span>
+                
+                <span class="c1">#error if registered volumes did not output successfully</span>
+                <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">seglabel</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">_rigid_coreg.nii.gz&quot;</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  =&gt; Done: coregistered volume stored to </span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">segvol</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">seglabel</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">_rigid_coreg.nii.gz&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Coregistration of </span><span class="si">{</span><span class="n">seglabel</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> failed. Subcortical volumes will not be outputted.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">segvol</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">seglabel</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">_rigid_coreg.nii.gz&quot;</span>
+        
+        <span class="c1">#####################################################################################</span>
+        <span class="c1">##################Saving each ROI as separate volumes################################</span>
+        
+        <span class="c1">#if coregistration worked, separating each ROI from the coregistered aseg</span>
+        <span class="k">if</span> <span class="n">segvol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">segvol</span><span class="p">):</span>
+            
+            <span class="c1">#get volumes of each aseg subcortical region separately</span>
+            <span class="c1">#read through lookup table, which contains aseg ROI labels, and extract their volume masks independently</span>
+            <span class="k">if</span> <span class="n">template</span><span class="o">==</span><span class="s1">&#39;fsaverage&#39;</span><span class="p">:</span>
+                <span class="c1">#7.4.1&#39;s &quot;$FREESURFER_HOME/FreeSurferColorLUT.txt&quot;</span>
+                <span class="n">lookuptable</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">toolboxdata</span><span class="si">}</span><span class="s2">/template_data/fsaverage/FreeSurferColorLUT.txt&quot;</span> 
+                <span class="c1">#indices for ROIs we don&#39;t care about (manually checked in the LUT what they referred to) </span>
+                <span class="n">skip_indices</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">41</span><span class="p">,</span> <span class="mi">42</span><span class="p">,</span> <span class="mi">43</span><span class="p">,</span> <span class="mi">44</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">62</span><span class="p">,</span> <span class="mi">63</span><span class="p">,</span> <span class="mi">77</span><span class="p">,</span> <span class="mi">85</span><span class="p">,</span> <span class="mi">251</span><span class="p">,</span> <span class="mi">252</span><span class="p">,</span> <span class="mi">253</span><span class="p">,</span> <span class="mi">254</span><span class="p">,</span> <span class="mi">255</span><span class="p">}</span>
+            
+            <span class="k">if</span> <span class="n">template</span><span class="o">==</span><span class="s1">&#39;fslfirst&#39;</span><span class="p">:</span>
+                <span class="c1">#custom ROI indices table and lookup table, adapted and based on the FreeSurfer LUT</span>
+                <span class="n">lookuptable</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">toolboxdata</span><span class="si">}</span><span class="s2">/template_data/fslfirst/fslfirstColorLUT.txt&quot;</span> 
+                <span class="n">skip_indices</span><span class="o">=</span><span class="p">{</span><span class="mi">107</span><span class="p">,</span><span class="mi">147</span><span class="p">}</span>
+            
+            <span class="c1">#Look into segmentation data and pick which match roi index</span>
+            <span class="n">niivol</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">segvol</span><span class="p">)</span>
+            <span class="n">seg_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">niivol</span><span class="o">.</span><span class="n">dataobj</span><span class="p">)</span>  
+            <span class="n">present_indices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">seg_data</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>  <span class="c1">#indices actually present</span>
+            <span class="n">nib</span><span class="o">.</span><span class="n">openers</span><span class="o">.</span><span class="n">Opener</span><span class="o">.</span><span class="n">default_compresslevel</span> <span class="o">=</span> <span class="mi">9</span> <span class="c1">#size comparable to mri_convert&#39;s outputs</span>
+                        
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">lookuptable</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+              <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+                  <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                  <span class="c1"># Skip empty lines or comments</span>
+                  <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span> <span class="ow">or</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">):</span> 
+                    <span class="k">continue</span>
+                  <span class="c1">#get index (first column)</span>
+                  <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                  <span class="n">index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> 
+                  <span class="c1">#stop once index reaches 251 (subsequent ROI labels ignored)</span>
+                  <span class="k">if</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">251</span><span class="p">:</span> 
+                    <span class="k">break</span>
+                  <span class="c1">#if index not among indices found in aseg.mgz,skip </span>
+                  <span class="k">if</span> <span class="n">index</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">roi_indices</span><span class="p">:</span> 
+                    <span class="k">continue</span>
+                  <span class="k">if</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">skip_indices</span><span class="p">:</span> 
+                    <span class="k">continue</span>
+                  <span class="k">if</span> <span class="n">index</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">present_indices</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                  <span class="c1">#get ROI name </span>
+                  <span class="n">label</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span>
+                
+                  <span class="c1">#Check if volume was extracted already</span>
+                  <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_volumes/</span><span class="si">{</span><span class="n">newsubid</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">.nii.gz&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">overwrite</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  =&gt; Extracting </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> ...&quot;</span><span class="p">)</span>
+                        
+                        <span class="c1">#Nibabel is much faster than freesurfer commands (which require mgz to nii</span>
+                        <span class="c1">#conversions)</span>
+                        <span class="n">roi_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">seg_data</span> <span class="o">==</span> <span class="n">index</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                        <span class="n">nib</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">(</span><span class="n">roi_data</span><span class="p">,</span> <span class="n">niivol</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="n">niivol</span><span class="o">.</span><span class="n">header</span><span class="p">),</span>
+                                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_volumes/</span><span class="si">{</span><span class="n">newsubid</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">.nii.gz&quot;</span><span class="p">)</span>
+        
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The coregistered T1 may have failed to be computed. Expected file: </span><span class="si">{</span><span class="n">antsdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">seglabel</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">_rigid_coreg.nii.gz&quot;</span><span class="p">)</span>
+        
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>  <span class="c1">#cleanup tmp file</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Cognitive and Brain Health Laboratory - Nanyang Technological University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

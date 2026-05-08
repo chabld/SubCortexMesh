@@ -1,0 +1,347 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>subcortexmesh.vol2surf &mdash; SubCortexMesh 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=67f63113" />
+      <link rel="stylesheet" type="text/css" href="../../_static/dark_mode_css/general.css?v=c0a7eb24" />
+      <link rel="stylesheet" type="text/css" href="../../_static/dark_mode_css/dark.css?v=70edf1c7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/dark_mode_js/default_dark.js?v=fd565c74"></script>
+      <script src="../../_static/dark_mode_js/theme_switcher.js?v=358d3910"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            SubCortexMesh
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Functions</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../subseg_getvol.html">subseg_getvol</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../vol2surf.html">vol2surf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../surf_qcplot.html">surf_qcplot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mesh_metrics.html">mesh_metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../merge_tools.html">merge_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../stat_tools.html">stat_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../template_data_fetch.html">template_data_fetch</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SubCortexMesh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">subcortexmesh.vol2surf</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for subcortexmesh.vol2surf</h1><div class="highlight"><pre>
+<span></span><span class="c1">#####################################################################################</span>
+<span class="c1">##################Converting subcortical volumes to surfaces#########################</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">vtk</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyvista</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pv</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<div class="viewcode-block" id="vol2surf">
+<a class="viewcode-back" href="../../vol2surf.html#subcortexmesh.vol2surf.vol2surf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">vol2surf</span><span class="p">(</span>
+    <span class="n">inputdir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="n">outputdir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="n">dilate_erode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">roilabel</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;left-cerebellum-cortex&#39;</span><span class="p">,</span> <span class="s1">&#39;right-cerebellum-cortex&#39;</span><span class="p">,</span> 
+                                    <span class="s1">&#39;left-pallidum&#39;</span><span class="p">,</span> <span class="s1">&#39;right-pallidum&#39;</span><span class="p">,</span> <span class="s1">&#39;left-putamen&#39;</span><span class="p">,</span> <span class="s1">&#39;right-putamen&#39;</span><span class="p">,</span> <span class="s1">&#39;left-thalamus&#39;</span><span class="p">,</span> <span class="s1">&#39;right-thalamus&#39;</span><span class="p">,</span><span class="s1">&#39;left-amygdala&#39;</span><span class="p">,</span> <span class="s1">&#39;right-amygdala&#39;</span><span class="p">,</span> <span class="s1">&#39;left-hippocampus&#39;</span><span class="p">,</span><span class="s1">&#39;right-hippocampus&#39;</span><span class="p">,</span> <span class="s1">&#39;left-accumbens-area&#39;</span><span class="p">,</span><span class="s1">&#39;right-accumbens-area&#39;</span><span class="p">,</span><span class="s1">&#39;left-caudate&#39;</span><span class="p">,</span> <span class="s1">&#39;right-caudate&#39;</span><span class="p">,</span> <span class="s1">&#39;left-ventraldc&#39;</span><span class="p">,</span> <span class="s1">&#39;right-ventraldc&#39;</span><span class="p">,</span> <span class="s1">&#39;brain-stem&#39;</span><span class="p">],</span>
+    <span class="n">smoothing</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span>
+    <span class="n">plot_volnext2surf</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">silent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Converting subcortical volumes to surface meshes</span>
+<span class="sd">    </span>
+<span class="sd">    This function function converts the separate volumes outputted by subseg_getvol, </span>
+<span class="sd">    using the discrete marching cube method. This includes pre-conversion dilation/erosion </span>
+<span class="sd">    of the volume and smoothing of the surface (both can be disabled) to ensure meshes are </span>
+<span class="sd">    not too coarse and noisy. Note that the dilation/smootinh process was applied to the </span>
+<span class="sd">    meshes used as the standard space in mesh_metrics().</span>
+<span class="sd">    </span>
+<span class="sd">    An optional argument can be provided to visualise the volume and its rendered mesh</span>
+<span class="sd">    (plot_volnext2surf), with an interactive slider, in order to check the quality of the </span>
+<span class="sd">    rendering of every mesh.</span>
+<span class="sd">    </span>
+<span class="sd">    Parallel processes: to avoid conflicts, subjects will be skipped if a &quot;isrunning&quot; tmp </span>
+<span class="sd">    file exists to mark them as currently processing. The tmp file is removed at the end or </span>
+<span class="sd">    replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to </span>
+<span class="sd">    rerun a subject before the 1 hour (its path is printed when flagged). </span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    inputdir : str, Path</span>
+<span class="sd">        The sub_volumes/ directory where the subcortical volumes were outputted </span>
+<span class="sd">        (using subseg_getvol()).</span>
+<span class="sd">    outputdir : str, Path</span>
+<span class="sd">        The path where subcortical meshes will be saved (creates the &quot;sub_surfaces&quot; </span>
+<span class="sd">        directory inside the path).</span>
+<span class="sd">    roilabel: str, Sequence</span>
+<span class="sd">        The name(s) of the region(s)-of-interest to be computed as strings. Default is all</span>
+<span class="sd">        subcortices across all segmentation templates: &#39;left-cerebellum-cortex&#39;, &#39;right-cerebellum-cortex&#39;, &#39;left-pallidum&#39;, &#39;right-pallidum&#39;, &#39;left-putamen&#39;, </span>
+<span class="sd">        &#39;right-putamen&#39;, &#39;left-thalamus&#39;, &#39;right-thalamus&#39;,&#39;left-amygdala&#39;,  &#39;right-amygdala&#39;, &#39;left-hippocampus&#39;, &#39;right-hippocampus&#39;, &#39;left-accumbens-area&#39;,&#39;right-accumbens-area&#39;,&#39;left-caudate&#39;, &#39;right-caudate&#39;, &#39;left-ventraldc&#39;, &#39;right-ventraldc&#39;, and &#39;brain-stem&#39;.</span>
+<span class="sd">    dilate_erode : bool</span>
+<span class="sd">        Uses vtkImageDilateErode3D to slightly erode and dilate the volume before conversion, </span>
+<span class="sd">        which helps unify sparse voxels and produce smooth vertices. Default is True.</span>
+<span class="sd">    smoothing: int</span>
+<span class="sd">        The number of iterations of the smoothing procedure (0 will apply no smoothing). The </span>
+<span class="sd">        settings are otherwise those of VTK&#39;s SmoothDiscreteMarchingCubes.  Default is 15.</span>
+<span class="sd">    plot_volnext2surf: bool</span>
+<span class="sd">        Whether to plot the volume and the surface together and check for their correspondance. </span>
+<span class="sd">        Default is False.</span>
+<span class="sd">    overwrite : bool</span>
+<span class="sd">        Whether files are to be overwritten or skipped if already in outputdir. Default is </span>
+<span class="sd">        True.</span>
+<span class="sd">    silent : bool</span>
+<span class="sd">        Whether messages about the process are to be printed. Default is False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">#list subjects </span>
+    <span class="n">sub_list</span> <span class="o">=</span><span class="p">[</span>    <span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">inputdir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">inputdir</span><span class="p">,</span> <span class="n">d</span><span class="p">))]</span>
+    
+    <span class="c1">#creates folder where surfaces will go </span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writing the </span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_surfaces directory...&quot;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_surfaces&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="n">subindex</span><span class="o">=</span><span class="mi">0</span>
+    <span class="k">for</span> <span class="n">subid</span> <span class="ow">in</span> <span class="n">sub_list</span><span class="p">:</span>
+        <span class="n">subindex</span><span class="o">=</span><span class="n">subindex</span><span class="o">+</span><span class="mi">1</span>
+        
+        <span class="c1">#unique tmp file to avoid parallel loop conflicts</span>
+        <span class="n">fname</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">_isrunning_surf.tmp&quot;</span><span class="p">)</span>
+        <span class="c1">#if exists already, and tmp file is younger than 1h, skip subject</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fname</span><span class="p">):</span> 
+            <span class="n">tmp_lifetime</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getmtime</span><span class="p">(</span><span class="n">fname</span><span class="p">))</span> <span class="o">/</span> <span class="mi">3600</span>
+            <span class="k">if</span> <span class="n">tmp_lifetime</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> already running (tmp file: </span><span class="si">{</span><span class="n">fname</span><span class="si">}</span><span class="s2">).&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+        <span class="c1">#creates tmp if loop wasn&#39;t skipped</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">):</span>
+                <span class="k">pass</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating surface meshes for </span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">... [</span><span class="si">{</span><span class="n">subindex</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">sub_list</span><span class="p">)</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span> 
+        
+        <span class="c1">#make subject folder</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_surfaces/</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">subdir</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">outputdir</span><span class="si">}</span><span class="s2">/sub_surfaces/</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">&quot;</span>
+        
+        <span class="n">vol_list</span><span class="o">=</span><span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.nii.gz&quot;</span><span class="p">)]</span>
+            
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vol_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">volfile</span> <span class="ow">in</span> <span class="n">vol_list</span><span class="p">:</span>
+                <span class="c1">#path to volume</span>
+                <span class="n">nifti_file</span><span class="o">=</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">inputdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">volfile</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> 
+                <span class="c1">#get base name to name surface the same way</span>
+                <span class="n">base</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;\.nii(\.gz)?$&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">volfile</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="n">base</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">roilabel</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">base</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">.vtk&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">overwrite</span><span class="p">:</span>
+                    <span class="c1">#Load volume with VTK</span>
+                    <span class="n">reader</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkNIFTIImageReader</span><span class="p">()</span>
+                    <span class="n">reader</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">nifti_file</span><span class="p">)</span>
+                    <span class="n">reader</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+                    
+                    <span class="c1">#read volume label (binary masks so only ones)</span>
+                    <span class="n">roi_label</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">nifti_file</span><span class="p">)</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">()))</span>
+                    
+                    <span class="c1">#dilate and erode volume to eliminate artefacts</span>
+                    <span class="k">if</span> <span class="n">dilate_erode</span><span class="p">:</span>
+                        <span class="n">dilate</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkImageDilateErode3D</span><span class="p">()</span>
+                        <span class="n">dilate</span><span class="o">.</span><span class="n">SetInputConnection</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">GetOutputPort</span><span class="p">())</span>
+                        <span class="n">dilate</span><span class="o">.</span><span class="n">SetDilateValue</span><span class="p">(</span><span class="n">roi_label</span><span class="p">)</span>   <span class="c1"># grow ROI voxels</span>
+                        <span class="n">dilate</span><span class="o">.</span><span class="n">SetErodeValue</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>            <span class="c1"># background</span>
+                        <span class="n">dilate</span><span class="o">.</span><span class="n">SetKernelSize</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+                        <span class="n">dilate</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+                        <span class="c1">#erosion</span>
+                        <span class="n">erode</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkImageDilateErode3D</span><span class="p">()</span>
+                        <span class="n">erode</span><span class="o">.</span><span class="n">SetInputConnection</span><span class="p">(</span><span class="n">dilate</span><span class="o">.</span><span class="n">GetOutputPort</span><span class="p">())</span>
+                        <span class="n">erode</span><span class="o">.</span><span class="n">SetDilateValue</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> 
+                        <span class="n">erode</span><span class="o">.</span><span class="n">SetErodeValue</span><span class="p">(</span><span class="n">roi_label</span><span class="p">)</span> 
+                        <span class="n">erode</span><span class="o">.</span><span class="n">SetKernelSize</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+                        <span class="n">erode</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+                        <span class="n">vol</span><span class="o">=</span><span class="n">erode</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">vol</span><span class="o">=</span><span class="n">reader</span>
+                    
+                    <span class="c1">#Turn volume to surface mesh, keeping voxels&#39; label</span>
+                    <span class="n">dmc</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDiscreteMarchingCubes</span><span class="p">()</span> 
+                    <span class="n">dmc</span><span class="o">.</span><span class="n">SetInputConnection</span><span class="p">(</span><span class="n">vol</span><span class="o">.</span><span class="n">GetOutputPort</span><span class="p">())</span>
+                    <span class="n">dmc</span><span class="o">.</span><span class="n">SetValue</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">roi_label</span><span class="p">)</span>
+                    <span class="n">dmc</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span> 
+                    
+                    <span class="c1">#Smooth the surface as pixellated 3D volume will make surface coarse </span>
+                    <span class="c1">#https://examples.vtk.org/site/Cxx/Modelling/SmoothDiscreteMarchingCubes/ default settings</span>
+                    <span class="k">if</span> <span class="n">smoothing</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">passBand</span> <span class="o">=</span> <span class="mf">0.001</span>
+                        <span class="n">featureAngle</span> <span class="o">=</span> <span class="mf">120.0</span>
+                        <span class="n">smooth</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkWindowedSincPolyDataFilter</span><span class="p">()</span> <span class="c1">#smoothing function</span>
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">SetInputConnection</span><span class="p">(</span><span class="n">dmc</span><span class="o">.</span><span class="n">GetOutputPort</span><span class="p">())</span> 
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">SetNumberOfIterations</span><span class="p">(</span><span class="n">smoothing</span><span class="p">)</span> 
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">BoundarySmoothingOff</span><span class="p">()</span>
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">FeatureEdgeSmoothingOff</span><span class="p">()</span>
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">SetFeatureAngle</span><span class="p">(</span><span class="n">featureAngle</span><span class="p">)</span>
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">SetPassBand</span><span class="p">(</span><span class="n">passBand</span><span class="p">)</span>
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">NonManifoldSmoothingOn</span><span class="p">()</span>
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">NormalizeCoordinatesOn</span><span class="p">()</span>
+                        <span class="n">smooth</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+                        <span class="n">mesh</span><span class="o">=</span><span class="n">smooth</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">()</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">mesh</span><span class="o">=</span><span class="n">dmc</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">()</span>
+                    
+                    <span class="c1">#remove any remaining floating bits separate from main mesh</span>
+                    <span class="c1">#these are artefact that can appear upon vol to mesh conversion, erosion,dilation.</span>
+                    <span class="n">connectivity</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkConnectivityFilter</span><span class="p">()</span>
+                    <span class="n">connectivity</span><span class="o">.</span><span class="n">SetInputData</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+                    <span class="n">connectivity</span><span class="o">.</span><span class="n">SetExtractionModeToLargestRegion</span><span class="p">()</span>
+                    <span class="n">connectivity</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+                    <span class="c1">#drop vertex point of bits dropped</span>
+                    <span class="n">cleaner</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkCleanPolyData</span><span class="p">()</span> 
+                    <span class="n">cleaner</span><span class="o">.</span><span class="n">SetInputConnection</span><span class="p">(</span><span class="n">connectivity</span><span class="o">.</span><span class="n">GetOutputPort</span><span class="p">())</span> 
+                    <span class="n">cleaner</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+                    <span class="n">mesh</span> <span class="o">=</span> <span class="n">cleaner</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">()</span>
+                    
+                    <span class="c1">###################################################################</span>
+                    <span class="c1">############################plotter################################</span>
+                    
+                    <span class="c1">#to check surf/vol alignment visually, comment out add_volume to just check mesh&#39;s shape</span>
+                    <span class="k">if</span> <span class="n">plot_volnext2surf</span><span class="p">:</span>
+                        <span class="n">plotter</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">Plotter</span><span class="p">()</span>
+                        <span class="c1">#get size to adapt camera zoom</span>
+                        <span class="n">bounds</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">bounds</span>
+                        <span class="n">size</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bounds</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">-</span><span class="n">bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">bounds</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="o">-</span><span class="n">bounds</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+                        <span class="n">center</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">center</span>
+                        <span class="n">plotter</span><span class="o">.</span><span class="n">camera_position</span> <span class="o">=</span> <span class="p">[</span>
+                            <span class="p">(</span><span class="n">center</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">center</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">center</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="mi">3</span><span class="o">*</span><span class="n">size</span><span class="p">),</span>  <span class="c1"># camera location</span>
+                            <span class="n">center</span><span class="p">,</span>  <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span> <span class="c1">#Y flipped as VTK&#39;s coord syst not following RAS</span>
+                        <span class="c1">#render volume and surface </span>
+                        <span class="n">actor_mesh</span> <span class="o">=</span> <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">pv</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">mesh</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">)</span>
+                        <span class="n">_</span> <span class="o">=</span> <span class="n">plotter</span><span class="o">.</span><span class="n">add_volume</span><span class="p">(</span><span class="n">pv</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">vol</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">()),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;Blues&quot;</span><span class="p">)</span>
+                        <span class="c1">#slider to allow users to separate them</span>
+                        <span class="k">def</span><span class="w"> </span><span class="nf">update_y</span><span class="p">(</span><span class="n">value</span><span class="p">):</span> 
+                            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span> 
+                                <span class="n">actor_mesh</span><span class="o">.</span><span class="n">SetPosition</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> 
+                            <span class="k">else</span><span class="p">:</span> 
+                                <span class="n">actor_mesh</span><span class="o">.</span><span class="n">SetPosition</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">value</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                        
+                        <span class="n">plotter</span><span class="o">.</span><span class="n">add_slider_widget</span><span class="p">(</span><span class="n">update_y</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Y-axis&quot;</span><span class="p">)</span>
+                        <span class="n">plotter</span><span class="o">.</span><span class="n">add_axes</span><span class="p">(</span><span class="n">interactive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s1">&#39;Y&#39;</span><span class="p">)</span> <span class="c1">#axis pointer helper</span>
+                        <span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    
+                    <span class="c1">###################################################################</span>
+                    <span class="c1">###################################################################</span>
+                    
+                    <span class="c1">#save smoothed mesh</span>
+                    <span class="c1">#guarantee overwriting</span>
+                    <span class="n">out_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">.vtk&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">out_path</span><span class="p">):</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">out_path</span><span class="p">)</span>
+                    
+                    <span class="n">writer</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPolyDataWriter</span><span class="p">()</span> 
+                    <span class="n">writer</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">out_path</span><span class="p">)</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">SetInputData</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+                    <span class="n">_</span> <span class="o">=</span> <span class="n">writer</span><span class="o">.</span><span class="n">Write</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  =&gt; Saved </span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">out_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">out_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subdir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">.vtk&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  =&gt; </span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s2"> mesh already in: </span><span class="si">{</span><span class="n">out_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  =&gt; No volume file (.nii) found at all for </span><span class="si">{</span><span class="n">subid</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>  <span class="c1">#cleanup tmp file</span></div>
+
+                
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Cognitive and Brain Health Laboratory - Nanyang Technological University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

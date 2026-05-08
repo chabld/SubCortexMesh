@@ -1,0 +1,174 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>subseg_getvol &mdash; SubCortexMesh 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=67f63113" />
+      <link rel="stylesheet" type="text/css" href="_static/dark_mode_css/general.css?v=c0a7eb24" />
+      <link rel="stylesheet" type="text/css" href="_static/dark_mode_css/dark.css?v=70edf1c7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/dark_mode_js/default_dark.js?v=fd565c74"></script>
+      <script src="_static/dark_mode_js/theme_switcher.js?v=358d3910"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="vol2surf" href="vol2surf.html" />
+    <link rel="prev" title="SubCortexMesh" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            SubCortexMesh
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Functions</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">subseg_getvol</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#subcortexmesh.subseg_getvol.subseg_getvol"><code class="docutils literal notranslate"><span class="pre">subseg_getvol()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="vol2surf.html">vol2surf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="surf_qcplot.html">surf_qcplot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh_metrics.html">mesh_metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="merge_tools.html">merge_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stat_tools.html">stat_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="template_data_fetch.html">template_data_fetch</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SubCortexMesh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">subseg_getvol</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/chabld/SubCortexMesh/blob/main/docs/source/subseg_getvol.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-subcortexmesh.subseg_getvol">
+<span id="subseg-getvol"></span><h1>subseg_getvol<a class="headerlink" href="#module-subcortexmesh.subseg_getvol" title="Link to this heading"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="subcortexmesh.subseg_getvol.subseg_getvol">
+<span class="sig-prename descclassname"><span class="pre">subcortexmesh.subseg_getvol.</span></span><span class="sig-name descname"><span class="pre">subseg_getvol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">toolboxdata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">silent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/subcortexmesh/subseg_getvol.html#subseg_getvol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#subcortexmesh.subseg_getvol.subseg_getvol" title="Link to this definition"></a></dt>
+<dd><p>Extracting and coregistering subcortical volumes from a cohort’s subcortical volumes</p>
+<p>This function reads through subjects of a FreeSurfer or FSL FIRST output preprocessing
+directory and identifies subcortical segmentation volumes. Typically, such volumes are
+“aseg.mgz” for FreeSurfer, and “<a href="#id1"><span class="problematic" id="id2">*</span></a>all_fast_firstseg” for FSL FIRST (plus, if applicable,
+“<a href="#id3"><span class="problematic" id="id4">*</span></a>Cereb_first.nii.gz”). For each subject, subseg_getvol() uses antspy to coregister the
+segmentation volumes to their respective template space  (fsaverage/MNI305 for FreeSurfer,
+MNI152 for FSL), and then extracts each subcortical region-of-interest separately.</p>
+<p>T1 volumes are required for the coregistration, stored as [sub-ID]/mri/T1.mgz for
+FreeSurfer and expected to be stored in the same “inputdir” path for FSL FIRST:
+the function will search for files containing the sub-ID and the “<em>T1w.nii</em>” pattern for
+each subject.</p>
+<p>Parallel processes: to avoid conflicts, subjects will be skipped if a “isrunning” tmp
+file exists to mark them as currently processing. The tmp file is removed at the end or
+replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to
+rerun a subject before the 1 hour (its path is printed when flagged).</p>
+<p>Note for (optional) FSL cerebellar segmentation: the cerebella need to be created inside
+the same output directory as run_first_all’s, naming them “<a href="#id5"><span class="problematic" id="id6">*</span></a>R_Cereb_first” and
+“<a href="#id7"><span class="problematic" id="id8">*</span></a>L_Cereb_first”. It can be done as follows (do the same for <cite>L_Cereb</cite>):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>first_flirt<span class="w"> </span><span class="o">[</span>subject<span class="w"> </span>T1file<span class="o">]</span><span class="w"> </span><span class="s2">&quot;[subject_directory]/[sub-id]&quot;</span><span class="w"> </span>-cort
+run_first<span class="w"> </span>-i<span class="w"> </span><span class="o">[</span>subject<span class="w"> </span>T1file<span class="o">]</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-t<span class="w"> </span><span class="s2">&quot;[subject_directory]/[sub-id_cort.mat]&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-n<span class="w"> </span><span class="m">40</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-o<span class="w"> </span><span class="s2">&quot;[subject_directory]/[sub-id]-R_Cereb_first&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-m<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">FSLDIR</span><span class="si">}</span><span class="s2">/data/first/models_336_bin/intref_puta/R_Cereb.bmv&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-intref<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">FSLDIR</span><span class="si">}</span><span class="s2">/data/first/models_336_bin/05mm/R_Puta_05mm.bmv&quot;</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputdir</strong> (<em>str</em><em>, </em><em>Path</em>) – The path to a directory containing each individual subject’s directory with
+preprocessing data inside. For FreeSurfer, typically the $SUBJECTS_DIR given
+to the recon-all pipeline. For FSL, a directory with one subdirectory per
+subject, each receiving its output from run_first_all.</p></li>
+<li><p><strong>outputdir</strong> (<em>str</em><em>, </em><em>Path</em>) – The path where subcortical volumes will be saved (creates the “sub_volumes”
+directory).</p></li>
+<li><p><strong>toolboxdata</strong> (<em>str</em><em>, </em><em>Path</em><em>, </em><em>optional</em>) – The path of the “subcortexmesh_data” package data directory. The  default path
+is assumed to be the user’s home directory (pathlib’s Path.home()). Users will
+be prompted to download it if not found.</p></li>
+<li><p><strong>template</strong> (<em>str</em>) – The name of the template the surfaces are supposed to be matching to. For FreeSurfer
+outputs, it is ‘fsaverage’. For FSL FIRST, it is ‘fslfirst’.</p></li>
+<li><p><strong>overwrite</strong> (<em>bool</em>) – Whether files are to be overwritten or skipped if already in outputdir. Default is True.</p></li>
+<li><p><strong>silent</strong> (<em>bool</em>) – Whether messages about the process are to be silenced. Default is False.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="SubCortexMesh" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vol2surf.html" class="btn btn-neutral float-right" title="vol2surf" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Cognitive and Brain Health Laboratory - Nanyang Technological University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

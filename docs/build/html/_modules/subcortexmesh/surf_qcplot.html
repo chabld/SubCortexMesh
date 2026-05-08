@@ -1,0 +1,431 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>subcortexmesh.surf_qcplot &mdash; SubCortexMesh 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=67f63113" />
+      <link rel="stylesheet" type="text/css" href="../../_static/dark_mode_css/general.css?v=c0a7eb24" />
+      <link rel="stylesheet" type="text/css" href="../../_static/dark_mode_css/dark.css?v=70edf1c7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/dark_mode_js/default_dark.js?v=fd565c74"></script>
+      <script src="../../_static/dark_mode_js/theme_switcher.js?v=358d3910"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            SubCortexMesh
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Functions</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../subseg_getvol.html">subseg_getvol</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../vol2surf.html">vol2surf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../surf_qcplot.html">surf_qcplot</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mesh_metrics.html">mesh_metrics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../merge_tools.html">merge_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../stat_tools.html">stat_tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../template_data_fetch.html">template_data_fetch</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SubCortexMesh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">subcortexmesh.surf_qcplot</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for subcortexmesh.surf_qcplot</h1><div class="highlight"><pre>
+<span></span><span class="c1">#####################################################################################</span>
+<span class="c1">###########Plotting native surfaces on top of their volume ##########################</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">vtk</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyvista</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pv</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mplpyplot</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpl_toolkits.mplot3d.art3d</span><span class="w"> </span><span class="kn">import</span> <span class="n">Poly3DCollection</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib.widgets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Button</span><span class="p">,</span> <span class="n">Slider</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">&#39;TkAgg&#39;</span><span class="p">)</span> <span class="c1">#matplotlib rendering backend for windows</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<div class="viewcode-block" id="surf_qcplot">
+<a class="viewcode-back" href="../../surf_qcplot.html#subcortexmesh.surf_qcplot.surf_qcplot">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">surf_qcplot</span><span class="p">(</span>
+    <span class="n">volpath</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="n">surfdir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="n">vol_color_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span>
+    <span class="n">outline_color_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;tab20&quot;</span><span class="p">,</span>
+    <span class="n">default_mesh</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Plotting subject surface boundaries on top of matching volume</span>
+<span class="sd">    </span>
+<span class="sd">    This function function will plot all surfaces generated with vol2surf() for a given subject (normally stored in &quot;sub_surfaces/sub-[id]/&quot;) and plot their boundaries on top of a selected .nii volume Because the surfaces are based on a volume rigidly coregistered to a template, the surfaces will match a volume generated with subseg_getvol(), i.e.  &quot;sub_volumes/sub-[id]/ants_coreg/T1_[template]_rigid_coreg.nii.gz&quot; (or any volume likewise coregistered).   </span>
+<span class="sd">    </span>
+<span class="sd">    Note that as per subseg_getvol(), individual regions-of-interest (ROIs) will have been inflated and smoothed by default to minimise graphical artefacts, which will naturally be reflected in the plot: regions will appear with slightly wider boundaries than their original anatomy. Another logical result is that ROI boundaries will appear overlapping, but since the surfaces are processed by SubCortexMesh entirely separately, this has no effect on the metrics values (ROIs overlapping here cannot be mixed up in their calculation by mesh_metrics() or merge_all()).</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    volpath : str, Path</span>
+<span class="sd">        The path to the volume to be plotted in the background (e.g., the T1 volume coregistered to fsaverage or fslfirst templates as part of subseg_getvol() in sub_volume/sub-[id]/ants_coreg/).</span>
+<span class="sd">    surfdir : str, Path</span>
+<span class="sd">        The path to the directory where subcortical .vtk meshes have been saved (normally, &quot;sub_surfaces/sub-[id]&quot;.</span>
+<span class="sd">    vol_color_map : str</span>
+<span class="sd">        Name of the color map to be assigned to the background volume, as listed in matplotlib&#39;s colormaps. Default is &quot;gray&quot;.</span>
+<span class="sd">    outline_color_map : str</span>
+<span class="sd">        Name of the color map to be assigned (in alphabetical order) to the subcortical surface outlines, as listed in matplotlib&#39;s colormaps. Default is &quot;tab20&quot;.</span>
+<span class="sd">    default_mesh : int</span>
+<span class="sd">        The index number corresponding to the region-of-interest to by plotted</span>
+<span class="sd">        by default. 5 (left-hippocampus, for fsaverage) is the default.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">###################################################################</span>
+    <span class="c1">##################VOLUME/BOUNDARIES RENDER#########################</span>
+    
+    <span class="c1">#Load volume</span>
+    <span class="n">vol_reader</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkNIFTIImageReader</span><span class="p">()</span>
+    <span class="n">vol_reader</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">volpath</span><span class="p">)</span>
+    <span class="n">vol_reader</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+    <span class="n">vol</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">vol_reader</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">())</span>
+    <span class="c1">#convert volume to numpy array for later manipulation</span>
+    <span class="n">vol_arr</span> <span class="o">=</span> <span class="n">vol</span><span class="o">.</span><span class="n">point_data</span><span class="p">[</span><span class="n">vol</span><span class="o">.</span><span class="n">active_scalars_name</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">vol</span><span class="o">.</span><span class="n">dimensions</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
+    
+    <span class="c1">#Load surfaces and store them in an array</span>
+    <span class="n">surf_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">surfdir</span><span class="p">))</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.vtk&quot;</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">surf_files</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No surface files were found in </span><span class="si">{</span><span class="n">surfdir</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    
+    <span class="n">surfaces</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">fname</span> <span class="ow">in</span> <span class="n">surf_files</span><span class="p">:</span>
+        <span class="n">reader</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPolyDataReader</span><span class="p">()</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">surfdir</span><span class="p">,</span> <span class="n">fname</span><span class="p">))</span>
+        <span class="n">reader</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+        <span class="c1">#downsampling vertex count to make it fasters</span>
+        <span class="n">decimator</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkQuadricDecimation</span><span class="p">()</span>
+        <span class="n">decimator</span><span class="o">.</span><span class="n">SetInputConnection</span><span class="p">(</span><span class="n">reader</span><span class="o">.</span><span class="n">GetOutputPort</span><span class="p">())</span>
+        <span class="c1">#decimation stronger for bigger meshes</span>
+        <span class="n">n_pts</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">()</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">()</span>
+        <span class="n">reduction</span> <span class="o">=</span> <span class="mf">0.95</span> <span class="k">if</span> <span class="n">n_pts</span> <span class="o">&gt;</span> <span class="mi">8000</span> <span class="k">else</span> <span class="mf">0.9</span>
+        <span class="n">decimator</span><span class="o">.</span><span class="n">SetTargetReduction</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span>
+        <span class="c1">#decimator.PreserveTopologyOn()</span>
+        <span class="n">decimator</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+        <span class="n">surfaces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pv</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">decimator</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">()))</span>
+
+    <span class="c1">#assign colors (tab20) to each mesh (adapted to available meshes)</span>
+    <span class="n">cmap</span> <span class="o">=</span> <span class="n">mplpyplot</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="n">outline_color_map</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">surfaces</span><span class="p">))</span>
+    <span class="n">mesh_colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">cmap</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">surfaces</span><span class="p">))]</span>
+    
+    <span class="c1">#prepare plot</span>
+    <span class="c1">#space for slices</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">mplpyplot</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+    <span class="n">ax_sag</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>   <span class="c1"># top-left</span>
+    <span class="n">ax_ax</span>  <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>   <span class="c1"># top-right</span>
+    <span class="n">ax_cor</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>   <span class="c1"># bottom-left</span>
+    <span class="n">axes</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;sag&#39;</span><span class="p">:</span> <span class="n">ax_sag</span><span class="p">,</span> <span class="s1">&#39;ax&#39;</span><span class="p">:</span> <span class="n">ax_ax</span><span class="p">,</span> <span class="s1">&#39;cor&#39;</span><span class="p">:</span> <span class="n">ax_cor</span><span class="p">}</span>
+    <span class="c1">#base slice values, will change across slider</span>
+    <span class="n">x_mid</span><span class="p">,</span> <span class="n">y_mid</span><span class="p">,</span> <span class="n">z_mid</span>  <span class="o">=</span> <span class="p">(</span><span class="n">vol</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">vol</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">vol</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="c1">#middle slices</span>
+    <span class="n">slice_idx</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;sag&#39;</span><span class="p">:</span><span class="n">x_mid</span><span class="p">,</span> <span class="s1">&#39;ax&#39;</span><span class="p">:</span><span class="n">y_mid</span><span class="p">,</span> <span class="s1">&#39;cor&#39;</span><span class="p">:</span><span class="n">z_mid</span><span class="p">}</span>
+    <span class="c1">#default rotation angle, will change at every click</span>
+    <span class="n">current_rotation</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;sag&#39;</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;ax&#39;</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;cor&#39;</span><span class="p">:</span><span class="mi">2</span><span class="p">}</span> 
+    
+    <span class="c1">#mesh rotator: cannot simply be done with rot90 due to array structure (no empty space to rotate along with it)</span>
+    <span class="c1">#a button callback will later modify its parameters for users to click</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rotate_points</span><span class="p">(</span><span class="n">meshcoords</span><span class="p">,</span> <span class="n">current_rotation</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
+        <span class="n">height</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="n">shape</span> <span class="c1">#slice size for rotation reference</span>
+        <span class="k">if</span> <span class="n">current_rotation</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">meshcoords</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="n">width</span> <span class="o">-</span> <span class="n">meshcoords</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]])</span> <span class="c1">#turn 90° leftward (moving axes)</span>
+        <span class="k">elif</span> <span class="n">current_rotation</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">width</span> <span class="o">-</span> <span class="n">meshcoords</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">height</span> <span class="o">-</span> <span class="n">meshcoords</span><span class="p">[:,</span><span class="mi">1</span><span class="p">]])</span> <span class="c1">#180°</span>
+        <span class="k">elif</span> <span class="n">current_rotation</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">height</span> <span class="o">-</span> <span class="n">meshcoords</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="n">meshcoords</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]])</span> <span class="c1">#270°</span>
+        <span class="k">else</span><span class="p">:</span>   
+            <span class="k">return</span> <span class="n">meshcoords</span> <span class="c1">#no rotation yet or back to default angle</span>
+    
+    <span class="c1">#draw slice</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">draw_slice</span><span class="p">(</span><span class="n">axis</span><span class="p">):</span>
+        <span class="n">subplot</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span>
+        
+        <span class="c1">#current zoom kept across slices if not the initial draw</span>
+        <span class="n">xlim</span> <span class="o">=</span> <span class="n">subplot</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">()</span>
+        <span class="n">ylim</span> <span class="o">=</span> <span class="n">subplot</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span>
+        <span class="n">is_default</span> <span class="o">=</span> <span class="n">xlim</span> <span class="o">==</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="ow">and</span> <span class="n">ylim</span> <span class="o">==</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>  <span class="c1">#default</span>
+        
+        <span class="n">subplot</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        
+        <span class="c1">#draft volume slice once</span>
+        <span class="k">if</span> <span class="n">axis</span> <span class="o">==</span> <span class="s1">&#39;sag&#39;</span><span class="p">:</span> <span class="c1">#x axis</span>
+            <span class="c1">#load slice at that view</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">vol_arr</span><span class="p">[</span><span class="n">slice_idx</span><span class="p">[</span><span class="n">axis</span><span class="p">],:,:]</span><span class="o">.</span><span class="n">T</span> <span class="c1">#slice converted to 2D Numpy array </span>
+            <span class="n">img_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">current_rotation</span><span class="p">[</span><span class="n">axis</span><span class="p">])</span> <span class="c1">#rotate coordinates 90 degrees for volume slice</span>
+            <span class="n">subplot</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">img_rot</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">vol_color_map</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s2">&quot;lower&quot;</span><span class="p">)</span> <span class="c1">#update plotter</span>
+            <span class="c1">#increase slider value from origin on that specific axis, relative to voxel space</span>
+            <span class="n">origin</span><span class="o">=</span><span class="p">(</span><span class="n">vol</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">slice_idx</span><span class="p">[</span><span class="s1">&#39;sag&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">vol</span><span class="o">.</span><span class="n">spacing</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> 
+        <span class="k">elif</span> <span class="n">axis</span> <span class="o">==</span> <span class="s1">&#39;ax&#39;</span><span class="p">:</span> <span class="c1">#y axis</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">vol_arr</span><span class="p">[:,</span><span class="n">slice_idx</span><span class="p">[</span><span class="n">axis</span><span class="p">],:]</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">img_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">current_rotation</span><span class="p">[</span><span class="n">axis</span><span class="p">])</span> 
+                <span class="n">subplot</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">img_rot</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">vol_color_map</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s2">&quot;lower&quot;</span><span class="p">)</span> 
+                <span class="n">origin</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">vol</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">slice_idx</span><span class="p">[</span><span class="s1">&#39;ax&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">vol</span><span class="o">.</span><span class="n">spacing</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">axis</span> <span class="o">==</span> <span class="s1">&#39;cor&#39;</span><span class="p">:</span> <span class="c1">#z axis</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">vol_arr</span><span class="p">[:,:,</span><span class="n">slice_idx</span><span class="p">[</span><span class="n">axis</span><span class="p">]]</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">img_rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">current_rotation</span><span class="p">[</span><span class="n">axis</span><span class="p">])</span> 
+                <span class="n">subplot</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">img_rot</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">vol_color_map</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="s2">&quot;lower&quot;</span><span class="p">)</span> 
+                <span class="n">origin</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">vol</span><span class="o">.</span><span class="n">origin</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">+</span><span class="n">slice_idx</span><span class="p">[</span><span class="s1">&#39;cor&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">vol</span><span class="o">.</span><span class="n">spacing</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        
+        <span class="c1">#plot every ROI surface on volume slice</span>
+        <span class="k">for</span> <span class="n">surf</span><span class="p">,</span> <span class="n">color</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">surfaces</span><span class="p">,</span> <span class="n">mesh_colors</span><span class="p">):</span>
+            <span class="c1">#extract coordinates of intersecting mesh points</span>
+            <span class="k">if</span> <span class="n">axis</span> <span class="o">==</span> <span class="s1">&#39;sag&#39;</span><span class="p">:</span> <span class="c1">#x axis</span>
+                <span class="c1">#identify mesh coordinates at that slice and rotate separately</span>
+                <span class="n">outline</span> <span class="o">=</span> <span class="n">surf</span><span class="o">.</span><span class="n">slice</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">)</span> <span class="c1">#intersect mesh at this slice</span>
+                <span class="k">if</span> <span class="n">outline</span><span class="o">.</span><span class="n">n_points</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="c1">#if empty, don&#39;t care</span>
+                    <span class="k">continue</span>  
+                <span class="n">meshcoords</span> <span class="o">=</span> <span class="n">outline</span><span class="o">.</span><span class="n">points</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]]</span> <span class="c1">#get updated coords for the moving axes</span>
+            <span class="k">elif</span> <span class="n">axis</span> <span class="o">==</span> <span class="s1">&#39;ax&#39;</span><span class="p">:</span> <span class="c1">#y axis</span>
+                <span class="n">outline</span> <span class="o">=</span> <span class="n">surf</span><span class="o">.</span><span class="n">slice</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">outline</span><span class="o">.</span><span class="n">n_points</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="c1">#if empty, don&#39;t care</span>
+                    <span class="k">continue</span>
+                <span class="n">meshcoords</span> <span class="o">=</span> <span class="n">outline</span><span class="o">.</span><span class="n">points</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]]</span> 
+            <span class="k">elif</span> <span class="n">axis</span> <span class="o">==</span> <span class="s1">&#39;cor&#39;</span><span class="p">:</span> <span class="c1">#z axis</span>
+                <span class="n">outline</span> <span class="o">=</span> <span class="n">surf</span><span class="o">.</span><span class="n">slice</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span><span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">outline</span><span class="o">.</span><span class="n">n_points</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="c1">#if empty, don&#39;t care</span>
+                    <span class="k">continue</span>
+                <span class="n">meshcoords</span> <span class="o">=</span> <span class="n">outline</span><span class="o">.</span><span class="n">points</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span>
+            
+            <span class="c1">#rotate mesh if present inside volume slice</span>
+            <span class="k">if</span> <span class="n">outline</span><span class="o">.</span><span class="n">n_points</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">meshcoords</span> <span class="o">=</span> <span class="n">rotate_points</span><span class="p">(</span><span class="n">meshcoords</span><span class="p">,</span> <span class="n">current_rotation</span><span class="p">[</span><span class="n">axis</span><span class="p">],</span> <span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                <span class="n">subplot</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">meshcoords</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">meshcoords</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">outline</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">:]</span>  <span class="c1"># strip cell count, get pairs of point indices</span>
+            <span class="k">for</span> <span class="n">i0</span><span class="p">,</span> <span class="n">i1</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+                <span class="n">p0</span> <span class="o">=</span> <span class="n">meshcoords</span><span class="p">[</span><span class="n">i0</span><span class="p">]</span>
+                <span class="n">p1</span> <span class="o">=</span> <span class="n">meshcoords</span><span class="p">[</span><span class="n">i1</span><span class="p">]</span>
+                <span class="n">subplot</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">p0</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p1</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="p">[</span><span class="n">p0</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">p1</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    
+        <span class="n">subplot</span><span class="o">.</span><span class="n">set_title</span><span class="p">({</span><span class="s1">&#39;sag&#39;</span><span class="p">:</span><span class="s2">&quot;Sagittal&quot;</span><span class="p">,</span><span class="s1">&#39;ax&#39;</span><span class="p">:</span><span class="s2">&quot;Axial&quot;</span><span class="p">,</span><span class="s1">&#39;cor&#39;</span><span class="p">:</span><span class="s2">&quot;Coronal&quot;</span><span class="p">}[</span><span class="n">axis</span><span class="p">])</span>
+        <span class="n">subplot</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Restore zoom if user had zoomed in</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_default</span><span class="p">:</span>
+            <span class="n">subplot</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xlim</span><span class="p">)</span>
+            <span class="n">subplot</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">ylim</span><span class="p">)</span>
+        
+        <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw_idle</span><span class="p">()</span>
+    
+    <span class="c1">#initial slice draw</span>
+    <span class="n">draw_slice</span><span class="p">(</span><span class="s1">&#39;sag&#39;</span><span class="p">)</span>
+    <span class="n">draw_slice</span><span class="p">(</span><span class="s1">&#39;ax&#39;</span><span class="p">)</span>
+    <span class="n">draw_slice</span><span class="p">(</span><span class="s1">&#39;cor&#39;</span><span class="p">)</span>
+    
+    <span class="c1">####################################################################</span>
+    <span class="c1">###########################3D VIEWER RENDER#########################</span>
+    
+    <span class="n">ax_3d</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+    
+    <span class="n">current_mesh_idx</span> <span class="o">=</span> <span class="p">[</span><span class="n">default_mesh</span><span class="p">]</span>  
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">draw_3d_mesh</span><span class="p">(</span><span class="n">idx</span><span class="p">):</span>
+        <span class="n">ax_3d</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="n">surf</span> <span class="o">=</span> <span class="n">surfaces</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="n">mesh_colors</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="c1">#same color as boundaries</span>
+        <span class="c1">#define mesh</span>
+        <span class="n">faces</span> <span class="o">=</span> <span class="n">surf</span><span class="o">.</span><span class="n">faces</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">:]</span>
+        <span class="n">verts</span> <span class="o">=</span> <span class="n">surf</span><span class="o">.</span><span class="n">points</span>
+        <span class="n">poly</span> <span class="o">=</span> <span class="n">Poly3DCollection</span><span class="p">(</span><span class="n">verts</span><span class="p">[</span><span class="n">faces</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">poly</span><span class="o">.</span><span class="n">set_facecolor</span><span class="p">(</span><span class="n">color</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span>
+        <span class="n">ax_3d</span><span class="o">.</span><span class="n">add_collection3d</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span>
+        
+        <span class="c1">#Force aspect ratio across all 3 axes to prevent mpl from </span>
+        <span class="c1">#twisting shape</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="n">verts</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="n">verts</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="n">center</span> <span class="o">=</span> <span class="p">[(</span><span class="n">bounds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">bounds</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">3</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+        <span class="n">max_range</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">bounds</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">bounds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">ax_3d</span><span class="o">.</span><span class="n">set_xlim3d</span><span class="p">(</span><span class="n">center</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">max_range</span><span class="p">,</span> <span class="n">center</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">max_range</span><span class="p">)</span>
+        <span class="n">ax_3d</span><span class="o">.</span><span class="n">set_ylim3d</span><span class="p">(</span><span class="n">center</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">max_range</span><span class="p">,</span> <span class="n">center</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">max_range</span><span class="p">)</span>
+        <span class="n">ax_3d</span><span class="o">.</span><span class="n">set_zlim3d</span><span class="p">(</span><span class="n">center</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">max_range</span><span class="p">,</span> <span class="n">center</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">max_range</span><span class="p">)</span>
+        <span class="n">ax_3d</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">surf_files</span><span class="p">[</span><span class="n">idx</span><span class="p">])[</span><span class="mi">0</span><span class="p">],</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="n">ax_3d</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;off&#39;</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw_idle</span><span class="p">()</span>
+    
+    <span class="n">draw_3d_mesh</span><span class="p">(</span><span class="n">default_mesh</span><span class="p">)</span> <span class="c1">#startup mesh (left hippocampus)</span>
+    
+    <span class="c1">####################################################################</span>
+    <span class="c1">############################ZOOM SCROLL#############################</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_scroll</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">event</span><span class="o">.</span><span class="n">inaxes</span>
+        <span class="k">if</span> <span class="n">ax</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">axes</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">return</span>
+        
+        <span class="n">scale</span> <span class="o">=</span> <span class="mf">0.85</span> <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">button</span> <span class="o">==</span> <span class="s1">&#39;up&#39;</span> <span class="k">else</span> <span class="mf">1.15</span>
+        <span class="n">xlim</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">()</span>
+        <span class="n">ylim</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span>
+        <span class="n">cx</span> <span class="o">=</span> <span class="p">(</span><span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">cy</span> <span class="o">=</span> <span class="p">(</span><span class="n">ylim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">ylim</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+        
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">cx</span> <span class="o">-</span> <span class="p">(</span><span class="n">cx</span> <span class="o">-</span> <span class="n">xlim</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">scale</span><span class="p">,</span> <span class="n">cx</span> <span class="o">+</span> <span class="p">(</span><span class="n">xlim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">cx</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">cy</span> <span class="o">-</span> <span class="p">(</span><span class="n">cy</span> <span class="o">-</span> <span class="n">ylim</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">scale</span><span class="p">,</span> <span class="n">cy</span> <span class="o">+</span> <span class="p">(</span><span class="n">ylim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">cy</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw_idle</span><span class="p">()</span>
+    
+    <span class="k">class</span><span class="w"> </span><span class="nc">FakeEvent</span><span class="p">:</span>
+        <span class="n">button</span> <span class="o">=</span> <span class="s1">&#39;up&#39;</span>
+        <span class="n">inaxes</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="n">fake</span> <span class="o">=</span> <span class="n">FakeEvent</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">axes</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">fake</span><span class="o">.</span><span class="n">inaxes</span> <span class="o">=</span> <span class="n">ax</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>  <span class="c1"># number of scroll steps</span>
+            <span class="n">on_scroll</span><span class="p">(</span><span class="n">fake</span><span class="p">)</span>
+        
+    <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s1">&#39;scroll_event&#39;</span><span class="p">,</span> <span class="n">on_scroll</span><span class="p">)</span>
+    
+    <span class="c1">####################################################################</span>
+    <span class="c1">##############################BUTTONS###############################</span>
+    
+    <span class="c1">#rotation button </span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_rotate_callback</span><span class="p">(</span><span class="n">axis</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">rotate</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+            <span class="n">current_rotation</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_rotation</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">4</span> <span class="c1">#4 angles, so value can only be cyclic</span>
+            <span class="n">draw_slice</span><span class="p">(</span><span class="n">axis</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">rotate</span>
+    <span class="c1">#slide slice along axis</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make_slider_callback</span><span class="p">(</span><span class="n">axis</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+            <span class="n">slice_idx</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="n">draw_slice</span><span class="p">(</span><span class="n">axis</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">update</span>
+    
+    <span class="c1">#render actual buttons for each subplot (hard-coded coordinates)</span>
+    <span class="c1">#sagittal</span>
+    <span class="n">button_sag</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">mplpyplot</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.08</span><span class="p">,</span> <span class="mf">0.52</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">]),</span> <span class="s2">&quot;↻&quot;</span><span class="p">)</span>
+    <span class="n">slider_gui_sag</span> <span class="o">=</span> <span class="n">mplpyplot</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.525</span><span class="p">,</span> <span class="mf">0.13</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">],</span> <span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;lightgrey&quot;</span><span class="p">)</span>
+    <span class="n">button_sag</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">make_rotate_callback</span><span class="p">(</span><span class="s1">&#39;sag&#39;</span><span class="p">))</span>
+    <span class="n">slider_sag</span> <span class="o">=</span> <span class="n">Slider</span><span class="p">(</span><span class="n">slider_gui_sag</span><span class="p">,</span> <span class="s1">&#39;sag&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">vol</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">valinit</span><span class="o">=</span><span class="n">x_mid</span><span class="p">,</span> <span class="n">valfmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">slider_sag</span><span class="o">.</span><span class="n">on_changed</span><span class="p">(</span><span class="n">make_slider_callback</span><span class="p">(</span><span class="s1">&#39;sag&#39;</span><span class="p">))</span>
+    <span class="c1">#axial</span>
+    <span class="n">button_ax</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">mplpyplot</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.40</span><span class="p">,</span> <span class="mf">0.52</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">]),</span> <span class="s2">&quot;↻&quot;</span><span class="p">)</span>
+    <span class="n">slider_gui_ax</span> <span class="o">=</span> <span class="n">mplpyplot</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.525</span><span class="p">,</span> <span class="mf">0.13</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">],</span> <span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;lightgrey&quot;</span><span class="p">)</span>
+    <span class="n">button_ax</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">make_rotate_callback</span><span class="p">(</span><span class="s1">&#39;ax&#39;</span><span class="p">))</span>
+    <span class="n">slider_ax</span> <span class="o">=</span> <span class="n">Slider</span><span class="p">(</span><span class="n">slider_gui_ax</span><span class="p">,</span> <span class="s1">&#39;ax&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">vol</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">valinit</span><span class="o">=</span><span class="n">y_mid</span><span class="p">,</span> <span class="n">valfmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">slider_ax</span><span class="o">.</span><span class="n">on_changed</span><span class="p">(</span><span class="n">make_slider_callback</span><span class="p">(</span><span class="s1">&#39;ax&#39;</span><span class="p">))</span>
+    <span class="c1">#coronal</span>
+    <span class="n">button_cor</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">mplpyplot</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.08</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">]),</span> <span class="s2">&quot;↻&quot;</span><span class="p">)</span>
+    <span class="n">slider_gui_cor</span> <span class="o">=</span> <span class="n">mplpyplot</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.030</span><span class="p">,</span> <span class="mf">0.13</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">],</span> <span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;lightgrey&quot;</span><span class="p">)</span>
+    <span class="n">button_cor</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">make_rotate_callback</span><span class="p">(</span><span class="s1">&#39;cor&#39;</span><span class="p">))</span>
+    <span class="n">slider_cor</span> <span class="o">=</span> <span class="n">Slider</span><span class="p">(</span><span class="n">slider_gui_cor</span><span class="p">,</span> <span class="s1">&#39;cor&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">vol</span><span class="o">.</span><span class="n">dimensions</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">valinit</span><span class="o">=</span><span class="n">z_mid</span><span class="p">,</span> <span class="n">valfmt</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">slider_cor</span><span class="o">.</span><span class="n">on_changed</span><span class="p">(</span><span class="n">make_slider_callback</span><span class="p">(</span><span class="s1">&#39;cor&#39;</span><span class="p">))</span>
+    <span class="c1">#3d viewer</span>
+    <span class="n">mesh_idx_text</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mf">0.50</span><span class="p">,</span> <span class="mf">0.042</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">default_mesh</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">surfaces</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+    <span class="n">button_mesh_prev</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">mplpyplot</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.54</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">]),</span> <span class="s2">&quot;◀&quot;</span><span class="p">)</span>
+    <span class="n">button_mesh_next</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">mplpyplot</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.59</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">]),</span> <span class="s2">&quot;▶&quot;</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">prev_mesh</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+        <span class="n">current_mesh_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_mesh_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">surfaces</span><span class="p">)</span>
+        <span class="n">mesh_idx_text</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">current_mesh_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">surfaces</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">draw_3d_mesh</span><span class="p">(</span><span class="n">current_mesh_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">next_mesh</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+        <span class="n">current_mesh_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_mesh_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">surfaces</span><span class="p">)</span>
+        <span class="n">mesh_idx_text</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">current_mesh_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">surfaces</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">draw_3d_mesh</span><span class="p">(</span><span class="n">current_mesh_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    
+    <span class="n">button_mesh_prev</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">prev_mesh</span><span class="p">)</span>
+    <span class="n">button_mesh_next</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">next_mesh</span><span class="p">)</span>
+    
+    <span class="c1">###################################################################</span>
+    <span class="c1">#############################LEGEND################################</span>
+    
+    <span class="c1">#Add subcortical legend on the right side</span>
+    <span class="n">legend_handles</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">legend_labels</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">fname</span><span class="p">,</span> <span class="n">color</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">surf_files</span><span class="p">,</span> <span class="n">mesh_colors</span><span class="p">):</span>
+        <span class="n">handle</span> <span class="o">=</span> <span class="n">mplpyplot</span><span class="o">.</span><span class="n">Line2D</span><span class="p">([</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">legend_handles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+        <span class="n">legend_labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">fname</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+    
+    <span class="n">fig</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">legend_handles</span><span class="p">,</span> <span class="n">legend_labels</span><span class="p">,</span>
+            <span class="n">loc</span><span class="o">=</span><span class="s1">&#39;center left&#39;</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">0.74</span><span class="p">,</span> <span class="mf">0.47</span><span class="p">),</span>
+            <span class="n">ncol</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;small&#39;</span><span class="p">)</span>
+    
+    <span class="n">fig</span><span class="o">.</span><span class="n">_widgets</span> <span class="o">=</span> <span class="p">[</span><span class="n">button_sag</span><span class="p">,</span> <span class="n">slider_sag</span><span class="p">,</span> <span class="n">button_ax</span><span class="p">,</span> <span class="n">slider_ax</span><span class="p">,</span> <span class="n">button_cor</span><span class="p">,</span> <span class="n">slider_cor</span><span class="p">,</span> <span class="n">button_mesh_prev</span><span class="p">,</span> <span class="n">button_mesh_next</span><span class="p">]</span>
+    
+    <span class="c1">#window title</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">set_window_title</span><span class="p">(</span><span class="s1">&#39;Surface QC Plot&#39;</span><span class="p">)</span>
+    <span class="n">mplpyplot</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">left</span><span class="o">=</span><span class="mf">0.088</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="mf">0.077</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mf">0.712</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">wspace</span><span class="o">=</span><span class="mf">0.017</span><span class="p">)</span>
+    <span class="n">mplpyplot</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Cognitive and Brain Health Laboratory - Nanyang Technological University.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
