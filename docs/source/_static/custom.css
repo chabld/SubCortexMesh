@@ -1,0 +1,7 @@
+#dark-mode-toggle {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    bottom: auto;   /* override the extension's bottom positioning */
+    z-index: 9999;
+}

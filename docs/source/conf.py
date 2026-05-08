@@ -23,6 +23,7 @@ extensions = [
 ]
 
 default_dark_mode = True #default to dark
+html_css_files = ["custom.css"] #needed custom css to move lightswitch button
 
 myst_enable_extensions = [
     "footnote",
