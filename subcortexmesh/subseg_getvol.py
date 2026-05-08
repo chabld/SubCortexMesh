@@ -109,6 +109,7 @@ def subseg_getvol(
         
     subindex=0
     for subid in sub_list: 
+        subindex=subindex+1
         
         #unique tmp file to avoid parallel loop conflicts
         fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_vol.tmp")
@@ -124,8 +125,7 @@ def subseg_getvol(
         
         #subject id reformatted and limited to sub-xxx for SCM
         newsubid=re.search(pattern, subid).group(1) 
-            
-        subindex=subindex+1
+        
         if not silent: 
             print(f"Processing {subid} ... [{subindex}/{len(sub_list)}]")
         
