@@ -199,7 +199,7 @@ def slm_plot(
         - 'p_rft' for the p-value map filtered based on significance of random field theory (RFT) cluster-wise p-values (use threshold argument)
         - 'clusters' for the identified clusters
     threshold: float, optional
-        Thresholding value in which vertices are to be plotted (plots values below the set threshold for t_fdr, t_rft, p_fdr_, p_rft, and clusters; above the threshold for t).
+        Thresholding value in which vertices are to be plotted (plots values below the set threshold for t_fdr, t_rft, p_fdr_, p_rft, and clusters; above the absolute threshold for t).
     cmap: str
         Name of the color map to be assigned to the background volume, as listed in matplotlib's colormaps. Default is "RdBu_r" if the plot shows both negative and positive effects, 'Blues_r' 
         or negative only, 'Reds' for positive only.
@@ -234,7 +234,7 @@ def slm_plot(
         scalars = slm.t.squeeze()
         #apply threshold
         if threshold is not None:
-            mask = scalars < threshold #t: mask under threshold
+            mask = np.abs(scalars) <  threshold #t: mask under threshold
             scalars = scalars.copy().astype(float)
             scalars[mask] = np.nan
         
@@ -468,3 +468,5 @@ def slm_plot(
                 clim=clim,
                 smooth_mesh=smooth_mesh,
             )
+        else:
+            raise ValueError('The "mode" argument can only be "anatomical" (default) or "flat".')

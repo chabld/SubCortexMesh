@@ -480,7 +480,7 @@ def vis_merged_flat(
     ##########################GRID RENDERING###########################
     
     nrows = int(np.ceil(n_roi / ncols))
-    
+    plotter = None
     plotter = pv.Plotter(
         shape=(nrows, ncols),
         off_screen=True,
