@@ -56,7 +56,10 @@ def surf_qcplot(
     surf_files = [f for f in sorted(os.listdir(surfdir)) if f.endswith(".vtk")]
     if len(surf_files) == 0:
         raise FileNotFoundError(f"No surface files were found in {surfdir}.")
-    
+    #default mesh can only be 5 if at least 5 surfs
+    if len(surf_files) < 5:
+        default_mesh=0 
+        
     surfaces = []
     for fname in surf_files:
         reader = vtk.vtkPolyDataReader()
@@ -72,7 +75,7 @@ def surf_qcplot(
         #decimator.PreserveTopologyOn()
         decimator.Update()
         surfaces.append(pv.wrap(decimator.GetOutput()))
-
+    
     #assign colors (tab20) to each mesh (adapted to available meshes)
     cmap = mplpyplot.get_cmap(outline_color_map, len(surfaces))
     mesh_colors = [cmap(i) for i in range(len(surfaces))]
@@ -162,7 +165,7 @@ def surf_qcplot(
                 p0 = meshcoords[i0]
                 p1 = meshcoords[i1]
                 subplot.plot([p0[0], p1[0]], [p0[1], p1[1]], '-', color=color, linewidth=1)
-    
+        
         subplot.set_title({'sag':"Sagittal",'ax':"Axial",'cor':"Coronal"}[axis])
         subplot.axis("off")
         
@@ -195,7 +198,7 @@ def surf_qcplot(
         poly = Poly3DCollection(verts[faces], alpha=0.6, linewidth=0)
         poly.set_facecolor(color[:3])
         ax_3d.add_collection3d(poly)
-        
+           
         #Force aspect ratio across all 3 axes to prevent mpl from 
         #twisting shape
         bounds = [verts[:, i].min() for i in range(3)] + [verts[:, i].max() for i in range(3)]
@@ -237,7 +240,7 @@ def surf_qcplot(
         fake.inaxes = ax
         for _ in range(3):  # number of scroll steps
             on_scroll(fake)
-        
+    
     fig.canvas.mpl_connect('scroll_event', on_scroll)
     
     ####################################################################
@@ -249,6 +252,7 @@ def surf_qcplot(
             current_rotation[axis] = (current_rotation[axis] + 1) % 4 #4 angles, so value can only be cyclic
             draw_slice(axis)
         return rotate
+    
     #slide slice along axis
     def make_slider_callback(axis):
         def update(val):
@@ -311,6 +315,6 @@ def surf_qcplot(
     fig._widgets = [button_sag, slider_sag, button_ax, slider_ax, button_cor, slider_cor, button_mesh_prev, button_mesh_next]
     
     #window title
-    fig.canvas.manager.set_window_title('Surface QC Plot')
+    fig.canvas.manager.set_window_title(f'Surface QC Plot - {surfdir}')
     mplpyplot.subplots_adjust(left=0.088, bottom=0.077, right=0.712, top=0.95, wspace=0.017)
     mplpyplot.show()
