@@ -122,7 +122,8 @@ def merge_all(
         if os.path.exists(fname): #if exists already, and tmp file is younger than 1h, skip subject
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:
-                print(f"{subid} already running (tmp file: {fname}).")
+                if not silent:
+                    print(f"{subid} already running (tmp file: {fname}).")
                 continue
         else: #creates tmp
             with open(fname, "w"):

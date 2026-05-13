@@ -117,7 +117,8 @@ def subseg_getvol(
         if os.path.exists(fname): 
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:
-                print(f"{subid} already running (tmp file: {fname}).")
+                if not silent:
+                    print(f"{subid} already running (tmp file: {fname}).")
                 continue
         #creates tmp if loop wasn't skipped
         with open(fname, "w"):
