@@ -76,6 +76,21 @@ def surf_qcplot(
         decimator.Update()
         surfaces.append(pv.wrap(decimator.GetOutput()))
     
+    
+    # limit sliders to the slice range actually occupied by any surface
+    all_points = np.vstack([surf.points for surf in surfaces])
+    sag_lo, sag_hi = int(np.floor((all_points[:,0].min() - vol.origin[0]) / vol.spacing[0])), \
+                     int(np.ceil ((all_points[:,0].max() - vol.origin[0]) / vol.spacing[0]))
+    ax_lo,  ax_hi  = int(np.floor((all_points[:,1].min() - vol.origin[1]) / vol.spacing[1])), \
+                     int(np.ceil ((all_points[:,1].max() - vol.origin[1]) / vol.spacing[1]))
+    cor_lo, cor_hi = int(np.floor((all_points[:,2].min() - vol.origin[2]) / vol.spacing[2])), \
+                     int(np.ceil ((all_points[:,2].max() - vol.origin[2]) / vol.spacing[2]))
+    
+    # clamp to valid array indices
+    sag_lo, sag_hi = max(sag_lo, 0), min(sag_hi, vol.dimensions[0]-1)
+    ax_lo,  ax_hi  = max(ax_lo,  0), min(ax_hi,  vol.dimensions[1]-1)
+    cor_lo, cor_hi = max(cor_lo, 0), min(cor_hi, vol.dimensions[2]-1)
+    
     #assign colors (tab20) to each mesh (adapted to available meshes)
     cmap = mplpyplot.get_cmap(outline_color_map, len(surfaces))
     mesh_colors = [cmap(i) for i in range(len(surfaces))]
@@ -88,7 +103,7 @@ def surf_qcplot(
     ax_cor = fig.add_subplot(2, 2, 3)   # bottom-left
     axes = {'sag': ax_sag, 'ax': ax_ax, 'cor': ax_cor}
     #base slice values, will change across slider
-    x_mid, y_mid, z_mid  = (vol.dimensions[0] // 2, vol.dimensions[1] // 2, vol.dimensions[2]// 2) #middle slices
+    x_mid, y_mid, z_mid  = ((sag_lo + sag_hi) // 2, (ax_lo  + ax_hi) // 2, (cor_lo + cor_hi) // 2) #middle slices
     slice_idx = {'sag':x_mid, 'ax':y_mid, 'cor':z_mid}
     #default rotation angle, will change at every click
     current_rotation = {'sag':1, 'ax':2, 'cor':2} 
@@ -265,19 +280,19 @@ def surf_qcplot(
     button_sag = Button(mplpyplot.axes([0.08, 0.52, 0.04, 0.03]), "↻")
     slider_gui_sag = mplpyplot.axes([0.18, 0.525, 0.13, 0.025], facecolor="lightgrey")
     button_sag.on_clicked(make_rotate_callback('sag'))
-    slider_sag = Slider(slider_gui_sag, 'sag', 0, vol.dimensions[0]-1, valinit=x_mid, valfmt='%d')
+    slider_sag = Slider(slider_gui_sag, 'sag', sag_lo, sag_hi, valinit=x_mid, valfmt='%d')
     slider_sag.on_changed(make_slider_callback('sag'))
     #axial
     button_ax = Button(mplpyplot.axes([0.40, 0.52, 0.04, 0.03]), "↻")
     slider_gui_ax = mplpyplot.axes([0.50, 0.525, 0.13, 0.025], facecolor="lightgrey")
     button_ax.on_clicked(make_rotate_callback('ax'))
-    slider_ax = Slider(slider_gui_ax, 'ax', 0, vol.dimensions[1]-1, valinit=y_mid, valfmt='%d')
+    slider_ax = Slider(slider_gui_ax, 'ax', ax_lo,  ax_hi, valinit=y_mid, valfmt='%d')
     slider_ax.on_changed(make_slider_callback('ax'))
     #coronal
     button_cor = Button(mplpyplot.axes([0.08, 0.025, 0.04, 0.03]), "↻")
     slider_gui_cor = mplpyplot.axes([0.18, 0.030, 0.13, 0.025], facecolor="lightgrey")
     button_cor.on_clicked(make_rotate_callback('cor'))
-    slider_cor = Slider(slider_gui_cor, 'cor', 0, vol.dimensions[2]-1, valinit=z_mid, valfmt='%d')
+    slider_cor = Slider(slider_gui_cor, 'cor', cor_lo, cor_hi, valinit=z_mid, valfmt='%d')
     slider_cor.on_changed(make_slider_callback('cor'))
     #3d viewer
     mesh_idx_text = fig.text(0.50, 0.042, f"{default_mesh}/{len(surfaces)-1}", ha='center', fontsize=9)
