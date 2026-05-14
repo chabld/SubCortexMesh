@@ -175,108 +175,12 @@ def mesh_metrics(
                     if not silent: 
                         print("   Generating a medial curve...")
                     
-                    def extract_medial_curve(mesh, n_slices=100):
-                        #make array of vertices 3D coordinates
-                        points = np.array([mesh.GetPoint(i) for i in range(mesh.GetNumberOfPoints())])
-                        
-                        #DIRECTIONAL AXIS IDENTIFICATION
-                        #sklearn's principal component analysis, helps find the directional axis across the mesh
-                        #get vertices that vary the most in the mesh (i.e., the direction across which it extends the most)
-                        #this is used to determine the ends of the surface which works well especially for "cylinder/banana" shapes
-                        pca = PCA(n_components=3)
-                        pca.fit(points)
-                        directions = pca.components_[0] #xyz values of the widest identified directional axis (1st component)
-                        projected = points @ directions #dot product: quantifies how far/close each vertex is along that directional axis
-                        min_val, max_val = projected.min(), projected.max() #ends are the farthest vertices on both sides of that axis
-                        
-                        #for more vertical structure, the ends are more straight forward ("inferior"-"superior" ends)
-                        if ("cerebellum" in base) or ("brain-stem" in base):
-                            superior_point = points[np.argmin(points[:,1])]  #idx with lowest Y
-                            inferior_point = points[np.argmax(points[:,1])]  #idx with highest Y
-                            # axis vector from superior to inferior
-                            directions = inferior_point - superior_point
-                            directions = directions / np.linalg.norm(directions)  # normalize
-                            # project points along this axis
-                            projected = points @ directions
-                            min_val, max_val = projected.min(), projected.max()
-                        
-                        slice_range = np.linspace(min_val, max_val, n_slices) #100 points in between where a slice will be made
-                        slice_positions = [directions * pos for pos in slice_range] #each position gets assigned a 3D coordinate
-                        
-                        #CENTROIDS DEFINITION
-                        #get centroid of each slice (through which the medial curve will be drawn)
-                        centroids = []
-                        for position in slice_positions:
-                            plane = vtk.vtkPlane() #makes artificial plane
-                            #use directional axis so vtk knows how is the slice angled
-                            plane.SetOrigin(position)
-                            plane.SetNormal(directions) 
-                            cutter = vtk.vtkCutter() #create a slice using the plane
-                            cutter.SetCutFunction(plane)
-                            cutter.SetInputData(mesh)
-                            cutter.Update()
-                            slice_poly = cutter.GetOutput()
-                            #only get centroid if the slice actually cuts any 3D space (otherwise, 0 vertex)
-                            if slice_poly.GetNumberOfPoints() > 0:
-                                pts = np.array([slice_poly.GetPoint(i) for i in range(slice_poly.GetNumberOfPoints())])
-                                centroids.append(pts.mean(axis=0))
-                            
-                        #FLATTENING OF AXIS ENDS
-                        #because the ends are usually differently shaped (not clear cut cylinder), 
-                        #the slicing tends to go sideways at the ends of the curve, so we stop "drawing" after 80% of the 
-                        #curve is complete, the last 10% will be assumed to be going straight along the same "core" direction. 
-                        #It's an assumption but it works well for the tested subcortices
-                        #get "core" 80% of the medial curve
-                        core = centroids[int(len(centroids) * 0.1):int(len(centroids) * 0.9)] #removes 10% tails of slices
-                        #Will extend each end (remaining 10% tails) in a straight line until centroids intersect with mesh
-                        box = vtk.vtkOBBTree() #make a "oriented bounding box" that will be used to detect when line reach boundary
-                        box.SetDataSet(mesh)
-                        box.BuildLocator()
-                        def extender(start_pt, direction): 
-                            #max_dist in case the line gets drawn outside by error, in which case it would extend infinitely
-                            max_dist=50
-                            step=0.5
-                            for i in range(1, int(max_dist / step)): #iterates every new line segment added
-                                next_pt = start_pt + direction * (i * step)
-                                points = vtk.vtkPoints() #placeholder for coordinate of the intersection
-                                box.IntersectWithLine(start_pt, next_pt, points, None) #check if line intersects with box
-                                if points.GetNumberOfPoints() > 0: #vertices at that point, if there are some then you've reached the mesh 
-                                    return np.array(points.GetPoint(0)) #return intersection's coordinate
-                                    
-                            return start_pt + direction * max_dist #if it never gets found, will define end as max_dist from start
-                            
-                        #define the two end directions 
-                        ext_start = extender(core[0], -directions)
-                        ext_end = extender(core[-1], directions)
-                        extended_core = [ext_start] + core + [ext_end]
-                        
-                        #LINE BUILDING
-                        #builds 3D line (made of centroids)
-                        spline_points = vtk.vtkPoints()
-                        for pt in extended_core:
-                            spline_points.InsertNextPoint(pt)
-                        
-                        parametric_spline = vtk.vtkParametricSpline()
-                        parametric_spline.SetPoints(spline_points)
-                        
-                        #smooth curve
-                        spline_source = vtk.vtkParametricFunctionSource()
-                        spline_source.SetParametricFunction(parametric_spline)
-                        spline_source.SetUResolution(25)  #N subdivisions
-                        spline_source.Update()
-                        
-                        core_poly = spline_source.GetOutput()
-                        
-                        #OUTPUT MEDIAL CURVE
-                        medial_curve = core_poly
-                        return medial_curve
-                    
                     #load mesh of interest
                     subject_mesh = load_mesh(f"{inputdir}/{subid}/{meshfile}")
                     subject_mesh = rotator(subject_mesh, template)
                     
                     #compute medial_curve
-                    subject_medial_curve = extract_medial_curve(subject_mesh, n_slices=100)
+                    subject_medial_curve = extract_medial_curve(subject_mesh, base, n_slices=100)
                     
                     if plot_medial_curve:
                         #script to plot (transparent) surface and its medical curve crossing through
@@ -474,7 +378,7 @@ def mesh_metrics(
                     #prepare the template's mesh and curve
                     template_mesh = load_mesh(f"{toolboxdata}/template_data/{template}/surfaces/{meshfile}")
                     template_mesh = rotator(template_mesh, template)
-                    template_medial_curve = extract_medial_curve(template_mesh, n_slices=100)
+                    template_medial_curve = extract_medial_curve(template_mesh, base, n_slices=100)
                     
                     #function to get vertices to np coordinate arrays (N rows * 3 (xyz) columns)
                     def pts_to_array(polydata):
@@ -742,6 +646,111 @@ def print_stats(subdir, mesh, base):
             df.loc[base] = stats
             # Save table
             df.to_csv(outfile, sep="\t", index_label="label", float_format="%.3f")
+
+
+###################################################################
+###################################################################
+#function to determine medial curve from mesh
+# - mesh is a vtk polydata object
+# - base is name of ROI (matters as brain-stem and cerebella get a special treatment)
+# - n_slices is the number of planes cut through the mesh in order to create the curve crossing through their centroids (the higher the more detailed the curve)
+# - n_points is the number of actual connecting points subdividing dot-to-dot segments across the curve (the lower the smoother)
+ 
+def extract_medial_curve(mesh, base, n_slices=100, n_points=25):
+    #make array of vertices 3D coordinates
+    points = np.array([mesh.GetPoint(i) for i in range(mesh.GetNumberOfPoints())])
+    
+    #DIRECTIONAL AXIS IDENTIFICATION
+    #sklearn's principal component analysis, helps find the directional axis across the mesh
+    #get vertices that vary the most in the mesh (i.e., the direction across which it extends the most)
+    #this is used to determine the ends of the surface which works well especially for "cylinder/banana" shapes
+    pca = PCA(n_components=3)
+    pca.fit(points)
+    directions = pca.components_[0] #xyz values of the widest identified directional axis (1st component)
+    projected = points @ directions #dot product: quantifies how far/close each vertex is along that directional axis
+    min_val, max_val = projected.min(), projected.max() #ends are the farthest vertices on both sides of that axis
+    
+    #for more vertical structure, the ends are more straight forward ("inferior"-"superior" ends)
+    if ("cerebellum" in base) or ("brain-stem" in base):
+        superior_point = points[np.argmin(points[:,1])]  #idx with lowest Y
+        inferior_point = points[np.argmax(points[:,1])]  #idx with highest Y
+        # axis vector from superior to inferior
+        directions = inferior_point - superior_point
+        directions = directions / np.linalg.norm(directions)  # normalize
+        # project points along this axis
+        projected = points @ directions
+        min_val, max_val = projected.min(), projected.max()
+    
+    slice_range = np.linspace(min_val, max_val, n_slices) #100 points in between where a slice will be made
+    slice_positions = [directions * pos for pos in slice_range] #each position gets assigned a 3D coordinate
+    
+    #CENTROIDS DEFINITION
+    #get centroid of each slice (through which the medial curve will be drawn)
+    centroids = []
+    for position in slice_positions:
+        plane = vtk.vtkPlane() #makes artificial plane
+        #use directional axis so vtk knows how is the slice angled
+        plane.SetOrigin(position)
+        plane.SetNormal(directions) 
+        cutter = vtk.vtkCutter() #create a slice using the plane
+        cutter.SetCutFunction(plane)
+        cutter.SetInputData(mesh)
+        cutter.Update()
+        slice_poly = cutter.GetOutput()
+        #only get centroid if the slice actually cuts any 3D space (otherwise, 0 vertex)
+        if slice_poly.GetNumberOfPoints() > 0:
+            pts = np.array([slice_poly.GetPoint(i) for i in range(slice_poly.GetNumberOfPoints())])
+            centroids.append(pts.mean(axis=0))
+        
+    #FLATTENING OF AXIS ENDS
+    #because the ends are usually differently shaped (not clear cut cylinder), 
+    #the slicing tends to go sideways at the ends of the curve, so we stop "drawing" after 80% of the 
+    #curve is complete, the last 10% will be assumed to be going straight along the same "core" direction. 
+    #It's an assumption but it works well for the tested subcortices
+    #get "core" 80% of the medial curve
+    core = centroids[int(len(centroids) * 0.1):int(len(centroids) * 0.9)] #removes 10% tails of slices
+    #Will extend each end (remaining 10% tails) in a straight line until centroids intersect with mesh
+    box = vtk.vtkOBBTree() #make a "oriented bounding box" that will be used to detect when line reach boundary
+    box.SetDataSet(mesh)
+    box.BuildLocator()
+    def extender(start_pt, direction): 
+        #max_dist in case the line gets drawn outside by error, in which case it would extend infinitely
+        max_dist=50
+        step=0.5
+        for i in range(1, int(max_dist / step)): #iterates every new line segment added
+            next_pt = start_pt + direction * (i * step)
+            points = vtk.vtkPoints() #placeholder for coordinate of the intersection
+            box.IntersectWithLine(start_pt, next_pt, points, None) #check if line intersects with box
+            if points.GetNumberOfPoints() > 0: #vertices at that point, if there are some then you've reached the mesh 
+                return np.array(points.GetPoint(0)) #return intersection's coordinate
+                
+        return start_pt + direction * max_dist #if it never gets found, will define end as max_dist from start
+        
+    #define the two end directions 
+    ext_start = extender(core[0], -directions)
+    ext_end = extender(core[-1], directions)
+    extended_core = [ext_start] + core + [ext_end]
+    
+    #LINE BUILDING
+    #builds 3D line (made of centroids)
+    spline_points = vtk.vtkPoints()
+    for pt in extended_core:
+        spline_points.InsertNextPoint(pt)
+    
+    parametric_spline = vtk.vtkParametricSpline()
+    parametric_spline.SetPoints(spline_points)
+    
+    #smooth curve
+    spline_source = vtk.vtkParametricFunctionSource()
+    spline_source.SetParametricFunction(parametric_spline)
+    spline_source.SetUResolution(n_points)  #N subdivisions
+    spline_source.Update()
+    
+    core_poly = spline_source.GetOutput()
+    
+    #OUTPUT MEDIAL CURVE
+    medial_curve = core_poly
+    return medial_curve
 
 ###################################################################
 ###################################################################
