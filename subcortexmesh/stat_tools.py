@@ -208,7 +208,7 @@ def slm_plot(
     smooth_mesh: int, optional
         Number of iterations of cosmetic smoothing to make the surface appear smoother. Default is 0.
     mode: str, optional
-        Rendering mode for all regions merged (see merge_tools() for the example output): 'flat' (2D PNG grid via vis_merged_flat), or 'slider' (interactive spread viewer via vis_merged). Argument ignored if individual ROIs are provided.
+        Rendering mode for all regions merged (see merge_all() for the example output): 'flat' (2D PNG grid via vis_merged_flat), or 'anatomical' (interactive spread viewer via vis_merged). Argument ignored if individual ROIs are provided.
     flatmode_filepath: str, Path, optional
         Output path for the PNG when all ROIs merged are provided and mode='flat'. Default is 'flat_plot.png'.
     """

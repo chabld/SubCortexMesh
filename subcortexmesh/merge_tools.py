@@ -300,78 +300,28 @@ def vis_merged(
 #####################################################################################
 ######Flat 2D grid preview of all subcortical ROIs from a merged VTK surface########
 
-#Function to automatically compute orientations  
-def _compute_orientations(submeshes, cam_distance=300.0):
-    """Compute a PCA-based camera position for each submesh.
-    
-    Author: Nicolas P.M. Lavarde
-    
-    Parameters
-    ----------
-    submeshes : list of pyvista.PolyData or None
-        Each element is a centered submesh, or None for empty ROIs.
-    cam_distance : float
-        Distance from the origin at which the camera is placed along PC3.
-
-    Returns
-    -------
-    list of tuple or None
-        Same length as submeshes. Each non-None element is a PyVista
-        camera_position tuple: ((cx, cy, cz), (0, 0, 0), (ux, uy, uz)).
-    """
-    orientations = []
-    for sub in submeshes:
-        if sub is None:
-            orientations.append(None)
-            continue
-        
-        pts = sub.points
-        cov = np.cov(pts.T)
-        eigenvalues, eigenvectors = np.linalg.eigh(cov)
-        
-        # eigh returns ascending order — reverse to get descending variance
-        idx_sorted = np.argsort(eigenvalues)[::-1]
-        eigenvectors = eigenvectors[:, idx_sorted]
-        
-        # PC1 = most elongated axis (col 0), PC2 = up vector (col 1), PC3 = camera axis (col 2)
-        pc2 = eigenvectors[:, 1]
-        pc3 = eigenvectors[:, 2]
-        
-        # Ensure camera is on the positive-Z side
-        if pc3[2] < 0:
-            pc3 = -pc3
-        
-        cam_pos = tuple(pc3 * cam_distance)
-        focal_point = (0.0, 0.0, 0.0)
-        up_vector = tuple(pc2)
-        
-        orientations.append((cam_pos, focal_point, up_vector))
-
-    return orientations
-
-
-# returns a single PNG file with a grid of all ROIs from the merged mesh, 
-# each colored differently and oriented along its PCA axes. 
-
 def vis_merged_flat(
     merged_vtk: Union[str, Path, vtk.vtkPolyData],
     output_path: Union[str, Path] = "flat_plot.png",
     ncols: int = 4,
     silent: bool = False,
     scalars: str = None,
-    cmap: str = 'viridis', 
+    cmap: str = 'viridis',
     clim: Optional[Tuple[float, float]] = None,
-    smooth_mesh:  Optional[int] = 0
+    smooth_mesh:  Optional[int] = 0,
+    toolboxdata: Optional[Union[str, Path]] = None
 ):
     """Flat 2D grid preview of all subcortical ROIs from a merged VTK surface
-    
+
     Reads a merged .vtk file produced by merge_all() which contains all
     subcortical structures concatenated into a single mesh, where each ROI
     was assigned a number ID. For each ROI, the corresponding sub-mesh is
     extracted, centered, and placed in a 2D grid layout saved as PNG.
-    
+    The layout is paired (left/right structures in adjacent columns); in
+    a top and bottom views.
+
     Authors: Nicolas P.M. Lavarde, Charly H.A. Billaud
-    
+
     Parameters
     ----------
     merged_vtk : str, Path, vtk.vtkPolyData
@@ -384,7 +334,7 @@ def vis_merged_flat(
         Whether to suppress progress messages. Default is False.
     scalars: str
         Name of the vertex-wise value which was assigned. Default is whatever measure was assigned
-        by mesh_metrics() ('thickness', 'curvature', or 'surfarea'). Can also be the 'roi_id' 
+        by mesh_metrics() ('thickness', 'curvature', or 'surfarea'). Can also be the 'roi_id'
         assigned by merge_all().
     cmap: str
         Name of the color map to be assigned to the background volume, as listed in matplotlib's colormaps. Default is "viridis".
@@ -392,6 +342,10 @@ def vis_merged_flat(
         Sequence of float stating the minimum and maximum value of the color bar. Default is minimum and maximum value.
     smooth_mesh: int, optional
         Number of iterations of cosmetic smoothing to make the surface appear smoother. Default is 0.
+    toolboxdata : str, Path, optional
+        The path of the "subcortexmesh_data" package data directory. The  default path 
+        is assumed to be the user's home directory (pathlib's Path.home()). Users will 
+        be prompted to download it if not found.
     """
     
     ###################################################################
@@ -454,6 +408,21 @@ def vis_merged_flat(
             f"Cannot auto-detect n_roi for mesh with {mesh.n_points} vertices. "
             "Expected 95718 (fsaverage, 19 ROIs) or 82412 (fslfirst, 17 ROIs)."
         )
+
+    roi_names = {i: f"ROI {i}" for i in range(n_roi)}
+    
+    if mesh.GetNumberOfPoints()==95718:
+        template='fsaverage'
+    elif mesh.GetNumberOfPoints()==82412:
+        template='fslfirst'
+    
+    _N_ROI_MESH = {19: 'allaseg', 17: 'allfslfirst'}
+    mergedmesh = _N_ROI_MESH[n_roi]
+    toolboxdata = template_data_fetch(datapath=toolboxdata, template=template)
+    roi_id_path = f"{toolboxdata}/template_data/{template}/surfaces/{mergedmesh}_roi_id.txt"
+    roi_lookup = pd.read_csv(roi_id_path, sep='\t')
+    roi_names = dict(zip(roi_lookup['id'].astype(int), roi_lookup['label']))
+    
     for i in range(n_roi):
         mask = roi_ids == i
         n_pts = int(mask.sum())
@@ -475,64 +444,137 @@ def vis_merged_flat(
         
         submeshes.append(sub)
     
-    orientations = _compute_orientations(submeshes)
+    ###################################################################
+    ####################BUILD PAIR/SINGLETON ROWS######################
+    
+    # Pass 1: map stripped names to their left/right roi_id
+    left_map = {}
+    right_map = {}
+    for roi_id, label in roi_names.items():
+        ll = label.lower()
+        if ll.startswith("left-"):
+            left_map[ll[5:]] = roi_id
+        elif ll.startswith("right-"):
+            right_map[ll[6:]] = roi_id
+    
+    # Pass 2: build ordered row list — pairs first (roi_id order), singletons last
+    seen = set()
+    rows = []
+    singleton_ids = []
+    
+    for roi_id in sorted(roi_names.keys()):
+        if roi_id in seen:
+            continue
+        label = roi_names[roi_id]
+        ll = label.lower()
+
+        if ll.startswith("left-"):
+            key = ll[5:]
+            right_id = right_map.get(key)
+            if right_id is not None:
+                rows.append(('pair', roi_id, right_id))
+                seen.add(roi_id)
+                seen.add(right_id)
+            else:
+                singleton_ids.append(roi_id)
+                seen.add(roi_id)
+        elif ll.startswith("right-"):
+            key = ll[6:]
+            left_id = left_map.get(key)
+            # only fires when right precedes left in roi_id order (atypical)
+            if left_id is not None and left_id not in seen:
+                rows.append(('pair', left_id, roi_id))
+                seen.add(roi_id)
+                seen.add(left_id)
+            else:
+                singleton_ids.append(roi_id)
+                seen.add(roi_id)
+        else:
+            singleton_ids.append(roi_id)
+            seen.add(roi_id)
+    
+    for roi_id in singleton_ids:
+        rows.append(('singleton', roi_id))
     
     ###################################################################
     ##########################GRID RENDERING###########################
+    # Y flipped as VTK's coord syst not following RAS
     
-    nrows = int(np.ceil(n_roi / ncols))
-    plotter = None
+    nrows = len(rows)
     plotter = pv.Plotter(
-        shape=(nrows, ncols),
+        shape=(nrows, 4),
         off_screen=True,
-        window_size=(ncols * 300, nrows * 300),
+        window_size=(4 * 300, nrows * 300),
     )
     plotter.set_background("white")
     
-    for idx in range(n_roi):
-        row = idx // ncols
-        col = idx % ncols
-        plotter.subplot(row, col)
-        
-        if submeshes[idx] is not None:
+    # fixed orthographic cameras: Y is superior in VTK coords
+    cam_top    = ((0, -500, 0), (0, 0, 0), (0, -1, -1))
+    cam_bottom = ((0, 500, 0), (0, 0, 0), (0, -1, -1))
+    
+    def _place_mesh(sub_idx, col, row_idx, camera, text_label, view_label, is_empty_label=False):
+        plotter.subplot(row_idx, col)
+        sub = submeshes[sub_idx] if sub_idx < len(submeshes) else None
+        if sub is not None:
             plotter.add_mesh(
-                submeshes[idx],
+                sub,
                 show_edges=False,
                 smooth_shading=True,
                 ambient=0.3,
                 diffuse=0.7,
-                #settings inherited from stat_tools
-                scalars=submeshes[idx].point_data[scalars],
+                scalars=sub.point_data[scalars],
                 cmap=cmap,
                 clim=clim,
                 nan_color='lightgrey',
-                show_scalar_bar=True
+                show_scalar_bar=False,
             )
-            plotter.add_text(
-                f"ROI {idx}",
-                position="upper_left",
-                font_size=8,
-                color="black",
-            )
+            plotter.add_text(text_label, position="upper_edge", font_size=8, color="black")
+            plotter.add_text(view_label, position="lower_edge", font_size=8, color="black")
         else:
             plotter.add_text(
-                f"ROI {idx}\n(empty)",
-                position="upper_left",
+                f"{text_label}\n(empty)" if not is_empty_label else text_label,
+                position="upper_edge",
                 font_size=8,
-                color="gray",
-            )
-
-        # orthographic view oriented along the PCA camera axis
+                color="gray")
         plotter.camera.parallel_projection = True
-        plotter.camera_position = orientations[idx]
+        plotter.camera_position = camera
         plotter.reset_camera()
     
-    # fill unused cells (if n_roi not a multiple of ncols)
-    for idx in range(n_roi, nrows * ncols):
-        row = idx // ncols
-        col = idx % ncols
-        plotter.subplot(row, col)
-        plotter.set_background("white")
+    for row_idx, row_def in enumerate(rows):
+        
+        if row_def[0] == 'pair':
+            _, left_id, right_id = row_def
+            left_label  = roi_names.get(left_id,  f"ROI {left_id}")
+            right_label = roi_names.get(right_id, f"ROI {right_id}")
+
+            _place_mesh(left_id,  0, row_idx, cam_top,    left_label, "top view")
+            _place_mesh(right_id, 1, row_idx, cam_top,    right_label, "top view")
+            _place_mesh(right_id, 2, row_idx, cam_bottom, right_label, "bottom view")
+            _place_mesh(left_id,  3, row_idx, cam_bottom, left_label, "bottom view")
+        
+        else:  # singleton
+            _, roi_id = row_def
+            label = roi_names.get(roi_id, f"ROI {roi_id}")
+
+            _place_mesh(roi_id, 1, row_idx, cam_top,    label, "top view")
+            plotter.subplot(row_idx, 1)
+            plotter.set_background("white")
+            _place_mesh(roi_id, 2, row_idx, cam_bottom, label, "bottom view")
+            plotter.subplot(row_idx, 3)
+            plotter.set_background("white")
+    
+    #add scalar bar to last empty square
+    plotter.subplot(nrows - 1, 3)
+    plotter.add_text(scalars, position="upper_edge", font_size=8, color="black")
+    plotter.add_scalar_bar(
+        vertical=True,
+        position_x=0.3,
+        position_y=0.15,
+        width=0.8,
+        height=0.6,
+        fmt="%.2f",
+        label_font_size=10
+    )
     
     plotter.screenshot(str(output_path))
     if not silent:

@@ -174,9 +174,11 @@ merge_all(
   silent=False)
 ```
 
-The mesh is saved in the sub_surfaces/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
+The mesh is saved in the sub_surfaces/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each mesh or .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
 
 ![](figures/merged.png)
+
+While vis_merged() does the 3D slider view, vis_merged_flat() writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, are laid out separately.
 
 ### Statistical analyses
 
@@ -215,21 +217,42 @@ Once the analysis is complete, the outputted cluster maps in the SLM object (her
 ``` python
 slm_plot(
   slm=slm_model, 
-  stat='clusters',
-  cmap='Blues',
+  stat='t_rft',
+  cmap='Blues_r', #optional, automatically set
   threshold= .05,
-  smooth_mesh=10 #cosmetic mesh smoothing
+  smooth_mesh=20 #cosmetic mesh smoothing
   )
 ```
 
 ![](figures/rft_cluster_ageeffect.png)
 
-Other options for the "stat" argument include:
+Options for the "stat" argument include:
 
 -   't' for the t-statistics map
 -   't_fdr' for the t-statistics maps filtered via false discovery rate (FDR) significance (use threshold argument)
 -   't_rft' for the t-statistics maps  filtered based on significance of random field theory (RFT) cluster-wise p-values (use threshold argument)
 -   'p_fdr' for the FDR-corrected p-value map
 -   'p_rft' for the p-values filtered based on significance of RFT cluster-wise p-values (use threshold argument)
+-   'clusters' for the identified clusters
 
-More advanced sets of analysis and plotting tools, including BrainStat's SLM as well as threshold-free cluster enhancement cluster analyses, are available in the R package [VertexWiseR](https://github.com/CogBrainHealthLab/VertexWiseR), which is able to [extract](https://cogbrainhealthlab.github.io/VertexWiseR/articles/VertexWiseR_surface_extraction.html) and [analyse](https://cogbrainhealthlab.github.io/VertexWiseR/articles/VertexWiseR_Example_3.html) outputs from SubCortexMesh.
+The same model can be run to test the effect on a global merged surface produced by merge_all(). It can then be plotted in slm_plot(), via vis_merged()'s 3D slider view previously shown (mode='anatomical'), or via vis_merged_flat() for a 2D grid-like view (mode='flat'):
+
+``` python
+slm_model_allaseg = slm_analysis(
+    inputdir='surface_metrics/',
+    metric='thickness',
+    roilabel='allaseg',
+    model=model,
+    contrast=contrast,
+    correction=["fdr", "rft"],
+    cluster_threshold=0.05,
+    smooth=5,
+    sub_list=beh_data['participant_id']
+)
+
+slm_plot(slm_model_allaseg, 't_rft', smooth_mesh=30, threshold=0.05, mode='flat',flatmode_filepath='flat_plot.png')
+```
+
+![](figures/flat_plot.png)
+
+Other sets of analyses, including BrainStat's SLM as well as threshold-free cluster enhancement cluster analyses, are available in the R package [VertexWiseR](https://github.com/CogBrainHealthLab/VertexWiseR), which is able to [extract](https://cogbrainhealthlab.github.io/VertexWiseR/articles/VertexWiseR_surface_extraction.html) and [analyse](https://cogbrainhealthlab.github.io/VertexWiseR/articles/VertexWiseR_Example_3.html) outputs from SubCortexMesh.
