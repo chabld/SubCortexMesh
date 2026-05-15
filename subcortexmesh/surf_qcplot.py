@@ -2,6 +2,7 @@
 ###########Plotting native surfaces on top of their volume ##########################
 
 import os
+import re
 import vtk
 import pyvista as pv
 import numpy as np
@@ -10,7 +11,7 @@ import matplotlib.pyplot as mplpyplot
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from matplotlib.widgets import Button, Slider
 matplotlib.use('TkAgg') #matplotlib rendering backend for windows
-from typing import Optional, Union
+from typing import Optional, Union, Sequence
 from pathlib import Path
 
 def surf_qcplot(
@@ -18,6 +19,8 @@ def surf_qcplot(
     surfdir: Union[str, Path],
     vol_color_map: Optional[str] = "gray",
     outline_color_map: Optional[str] = "tab20",
+    roilabel: Union[str, Sequence[str]] = ['left-cerebellum-cortex', 'right-cerebellum-cortex', 
+                                    'left-pallidum', 'right-pallidum', 'left-putamen', 'right-putamen', 'left-thalamus', 'right-thalamus','left-amygdala', 'right-amygdala', 'left-hippocampus','right-hippocampus', 'left-accumbens-area','right-accumbens-area','left-caudate', 'right-caudate', 'left-ventraldc', 'right-ventraldc', 'brain-stem'],
     default_mesh: int = 5
     ):
     """Plotting subject surface boundaries on top of matching volume
@@ -36,6 +39,12 @@ def surf_qcplot(
         Name of the color map to be assigned to the background volume, as listed in matplotlib's colormaps. Default is "gray".
     outline_color_map : str
         Name of the color map to be assigned (in alphabetical order) to the subcortical surface outlines, as listed in matplotlib's colormaps. Default is "tab20".
+    roilabel: str, Sequence
+        The name(s) of the region(s)-of-interest to be included in the plot. Default is all
+        subcortices across all segmentation templates: 'left-cerebellum-cortex', 
+        'right-cerebellum-cortex', 'left-pallidum', 'right-pallidum', 'left-putamen', 
+        'right-putamen', 'left-thalamus', 'right-thalamus','left-amygdala',  'right-amygdala', 'left-hippocampus', 'right-hippocampus', 'left-accumbens-area','right-accumbens-area','left-caudate', 'right-caudate', 'left-ventraldc', 'right-ventraldc', and 'brain-stem'.
+        Users can also omit the hemispheres to include both sides of a given ROI.
     default_mesh : int
         The index number corresponding to the region-of-interest to by plotted
         by default. 5 (left-hippocampus, for fsaverage) is the default.
@@ -56,6 +65,10 @@ def surf_qcplot(
     surf_files = [f for f in sorted(os.listdir(surfdir)) if f.endswith(".vtk")]
     if len(surf_files) == 0:
         raise FileNotFoundError(f"No surface files were found in {surfdir}.")
+    #only selected ROIs as per roilabel
+    if isinstance(roilabel, str):
+        roilabel = [roilabel] #if a single string given, turns to list
+    surf_files=[s for s in surf_files if any(re.search(p, s) for p in roilabel)]
     #default mesh can only be 5 if at least 5 surfs
     if len(surf_files) < 5:
         default_mesh=0 

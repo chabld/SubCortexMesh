@@ -149,7 +149,7 @@ def merge_all(
                     
                     if len(mesh_list) != nroi:
                         if not silent: 
-                            print(f"{measure} ignored: all subcortices of the {template} template ({nroi}) must be available to create the template-wide surface.")
+                            print(f"=> {measure} ignored: all subcortices of the {template} template ({nroi}) must be available.")
                     else:
                         if not silent: 
                             print(f"=> Merging {measure} ...")
