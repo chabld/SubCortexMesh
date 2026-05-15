@@ -70,7 +70,7 @@ def surf_qcplot(
         roilabel = [roilabel] #if a single string given, turns to list
     surf_files=[s for s in surf_files if any(re.search(p, s) for p in roilabel)]
     #default mesh can only be 5 if at least 5 surfs
-    if len(surf_files) < 5:
+    if len(surf_files) <= 5:
         default_mesh=0 
         
     surfaces = []
