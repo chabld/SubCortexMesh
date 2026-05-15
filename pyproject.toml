@@ -19,7 +19,7 @@ dependencies = [
 requires-python = ">=3.10"
 authors = [
   {name = "Charly H. A. Billaud", email = "charly.billaud@ntu.edu.sg"},
-  {name = "Junhong Yu", email = "junhong.yu@ntu.edu.sg"}
+  {name = "Junhong Yu", email = "junhong.yu@ntu.edu.sg"},
   {name = "Nicolas P. M. Lavarde", email = "nicolas.lavarde@gmail.com"}
 ]
 maintainers = [
