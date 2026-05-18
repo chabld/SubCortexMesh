@@ -6,6 +6,8 @@ import re
 import vtk
 import pyvista as pv
 import numpy as np
+import pandas as pd
+from sklearn.decomposition import PCA
 import matplotlib
 import matplotlib.pyplot as mplpyplot
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -346,3 +348,154 @@ def surf_qcplot(
     fig.canvas.manager.set_window_title(f'Surface QC Plot - {surfdir}')
     mplpyplot.subplots_adjust(left=0.088, bottom=0.077, right=0.712, top=0.95, wspace=0.017)
     mplpyplot.show()
+
+
+
+
+
+####################################################################################
+#####################################################################################
+####################Detecting surface outliers#######################################
+
+def autoqc_outliers(
+    inputdir: Union[str, Path], 
+    n_sd: float = 2,
+    silent: bool = False,
+    ):
+    """Automated algorithm to flag surface outliers
+    
+    This function reads all surface meshes outputted by vol2surf in a "sub_surfaces" directory,
+    and estimates five heuristic graphical features: 
+    
+    - Volume: total space enclosed in the mesh (VTK's mass properties)
+    - Surface area: total area of all triangles on the mesh surface (VTK's mass properties)
+    - Sphericity: how spherical the mesh is (VTK's mass properties)
+    - Elongation: how elongated the mesh is (vertex divergences between axes)
+    - Symmetry: how spread are vertices between the mesh's two halves
+    
+    For each ROI and subject, it will flag, relatively to the same ROI across the 
+    cohort in sub_surfaces/, whether a subject's mesh diverges in 1, 2, 3 or 
+    all 4 features (± N standard deviations from the mean).
+    
+    Parameters
+    ----------
+    inputdir : str, Path
+        The sub_surfaces/ directory where the surface objects were outputted (using vol2surf()).
+    n_sd : float
+        The number of standard deviations from the mean feature value, above or under 
+        which a subject's label is to be flagged as an outlier. Default is 2.
+    silent : bool
+        Whether messages about the process are to be printed. Default is False.
+    
+    Returns
+    -------
+    flag_df : data.frame
+        A data.frame array listing each subject per row, and each ROI per column. Each ROI is
+        assigned 0 to 4 values, indicating whether the ROI for that subject was an outlier on
+        none,any or all four heuristic features.
+    """
+    
+    #Cohort-wide table to store all the dice files
+    labels = ["left-accumbens-area", "right-accumbens-area", "left-amygdala", "right-amygdala",
+                    "left-caudate", "right-caudate", "left-cerebellum-cortex", "right-cerebellum-cortex",
+                    "left-hippocampus", "right-hippocampus", "left-pallidum", "right-pallidum",
+                    "left-putamen", "right-putamen", "left-thalamus", "right-thalamus",
+                    "left-ventraldc", "right-ventraldc", "brain-stem"]
+    sub_list =[    d for d in os.listdir(inputdir)
+            if os.path.isdir(os.path.join(inputdir, d))]
+    
+    #Four heuristic features
+    features = ['volume', 'surface_area', 'sphericity', 'elongation', 'symmetry']
+    #for each feature separately, collate their numeric value for each subject and each ROI in a 
+    #global df
+    dfs = {d: pd.DataFrame(index=sub_list, columns=labels) for d in features}
+    
+    #mesh loader function
+    def load_mesh(path):
+        reader = vtk.vtkPolyDataReader()
+        reader.SetFileName(path)
+        reader.Update()
+        return reader.GetOutput()
+    
+    #data feature functions
+    def mesh_symmetry(mesh):
+        #sklearn's principal component analysis, helps find the directional axis across the mesh
+        #get vertices that vary the most in the mesh (i.e., the direction across which it extends 
+        # the most)
+        pts = np.array([mesh.GetPoint(i) for i in range(mesh.GetNumberOfPoints())])
+        pca = PCA(n_components=3).fit(pts)
+        distances = pts @ pca.components_[0] #dot product between every vertex and direction
+        
+        #split in half and get the variance in distance for half 1 and half 2
+        #split at the average of distances in order to split roughly where a
+        #change in shape largely appears
+        spread_1= pts[distances <  distances.mean()].std()
+        spread_2 = pts[distances >= distances.mean()].std()
+        
+        #get ratio of a half's distances compared to the other one (from 
+        #perfectly symmetry 1.0 to asymmetry >1.0)
+        return max(spread_1, spread_2) / min(spread_1, spread_2)
+    
+    def shape_features(mesh):
+        #VTK mass properties filter gets closed mesh total "volume" (the total space enclosed) and "surface area" (total area of all triangles on the mesh surface) via divergence theorem 
+        volume = vtk.vtkMassProperties()
+        volume.SetInputData(mesh)
+        volume.Update()
+        V = volume.GetVolume()
+        A = volume.GetSurfaceArea()
+        
+        #ratio of how sphere-like the shape is (0 to 1: perfect sphere is 1, increases with complexity)
+        sphericity = volume.GetNormalizedShapeIndex()
+        
+        #Bounding box extents, i.e. the difference between the maximum and minimum coordinate 
+        # (for each of the 3 axes). 
+        #elongation the ratio of maximum divergence to minimum divergence among the axes
+        pts = np.array([mesh.GetPoint(i) for i in range(mesh.GetNumberOfPoints())])
+        bbox = pts.max(axis=0) - pts.min(axis=0)
+        elongation = np.sort(bbox)[-1] / np.sort(bbox)[0]
+        
+        #Asymmetry: ratio of 
+        symmetry=mesh_symmetry(mesh)
+        
+        return dict(volume=V, surface_area=A, sphericity=sphericity, elongation=elongation, symmetry=symmetry)
+    
+    subindex=0
+    for subid in sub_list:
+        subindex=subindex+1
+        
+        if not silent: 
+                print(f"{subid} [{subindex}/{len(sub_list)}]")
+        
+        #listing files available for subject
+        mesh_list = [f for f in os.listdir(f"{inputdir}/{subid}") if f.endswith('.vtk')]
+        
+        if len(mesh_list) > 0:
+            for meshfile in mesh_list:  
+                #get base name to name surface the same way
+                base = re.sub(r'\.vtk?$', '', meshfile)
+                
+                if not silent: 
+                            print(f"   Checking {base}...")
+                #load subject mesh and extract feature values
+                subject_mesh = load_mesh(f"{inputdir}/{subid}/{meshfile}")
+                desc = shape_features(subject_mesh)
+                for d in features:
+                    dfs[d].loc[subid, base] = desc[d]
+        
+        else:
+            if not silent: 
+                print(f"No mesh file (.vtk) found at all for {subid}.")
+    
+    #flag outliers: for each ROI and feature, flag subjects > mean ± 2 sd
+    flag_df = pd.DataFrame(0, index=sub_list, columns=labels)
+    for roi in labels:
+        for d in features:
+            vals = dfs[d][roi].dropna().astype(float)
+            mean, std = vals.mean(), vals.std()
+            outliers = vals[(vals < mean - n_sd*std) | (vals > mean + n_sd*std)].index
+            flag_df.loc[outliers, roi] += 1  # accumulate flag count across features
+    
+    #flag_df contains 0-4 per subject/structure (0 means the subject is outlying in no feature,
+    #4 means subject is outlying on all four features)
+    return flag_df
+

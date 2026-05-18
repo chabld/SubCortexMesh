@@ -7,7 +7,8 @@ from subcortexmesh.mesh_metrics import (mesh_metrics)
 from subcortexmesh.merge_tools import (merge_all)
 from subcortexmesh.merge_tools import (vis_merged)
 from subcortexmesh.merge_tools import (vis_merged_flat)
-from subcortexmesh.surf_qcplot import (surf_qcplot)
+from subcortexmesh.qc_tools import (surf_qcplot)
+from subcortexmesh.qc_tools import (autoqc_outliers)
 from subcortexmesh.stat_tools import (slm_analysis)
 from subcortexmesh.stat_tools import (slm_plot)
 
@@ -20,6 +21,7 @@ __all__ = [
     "vis_merged",
     "vis_merged_flat",
     "surf_qcplot",
+    "autoqc_outliers",
     "slm_analysis",
     "slm_plot"
 ]

@@ -4,9 +4,22 @@
 
 ## Surface-based postprocessing of segmented subcortices in Python
 
-This toolbox provides commands for surface based measures of subcortical segmentations from FreeSurfer and FSL FIRST, including thickness, surface area and curvature. Depending on the segmentation algorithm, compatible subcortices are: the **Thalamus**, **Caudate**, **Putamen**, **Pallidum**, **Hippocampus**, **Amygdala**, **Accumbens-area**, **Ventral diencephalon**, **Cerebellum**, and the **Brain-Stem**.
+This toolbox provides commands to process and analyse surface-based measures of subcortical segmentations from FreeSurfer and FSL FIRST, including thickness, surface area and curvature. Depending on the segmentation algorithm, compatible subcortices are: the **Thalamus**, **Caudate**, **Putamen**, **Pallidum**, **Hippocampus**, **Amygdala**, **Accumbens-area**, **Ventral diencephalon**, **Cerebellum**, and the **Brain-Stem**.
 
-## Workflow
+## Summary
+
+-   [Workflow](#id1)
+-   [Installation](#id2)
+-   [Extracting and coregistering subcortical volumes](#id3)
+-   [Converting volumes to surfaces](#id4)
+-   [Visualising and inspecting converted surfaces meshes](#id5)
+-   [Computing surface-based metrics](#id6)
+-   [Merging all surfaces](#id7)
+-   [Statistical analyses](#id8)
+
+------------------------------------------------------------------------
+
+## Workflow {#id1}
 
 ![](figures/SCM_flowchart.png)
 
@@ -28,7 +41,7 @@ The toolbox automatically converts a subjects directory's subcortical segmentati
 
 [^2]: The fslfirst/MNI152 surface-based templates for each ROI have also been produced by using SubCortexMesh's own functions (subseg_getvol(), vol2surf()) with the same parameters (except smoothing=20). The segmentations volumes were obtained using FSL v.6.0.6's own probabilistic models (.bmv files in \$FSLDIR/data/first/models_336_bin/) on the standard MNI 152 1mm T1w volume (\$FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz). Cerebellar meshes were produced using [run_first](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage), with "-n 40" modes, using the putamen intensities to normalise its intensity sample as recommended by the latter's documentation.
 
-## Installation
+## Installation {#id2}
 
 SubCortexMesh can be installed via pip from the GitHub directory:
 
@@ -45,7 +58,7 @@ toolboxdata=template_data_fetch(template='fsaverage') #or 'fslfirst'
 
 ## Getting started
 
-### Extracting and coregistering subcortical volumes
+### Extracting and coregistering subcortical volumes {#id3}
 
 The extraction of segmentation volumes is done on preprocessing subjects directories, where subcortical segmentations are available. Typically, a subject directory is the output `$SUBJECTS_DIR` for FreeSurfer's [recon-all pipeline](https://surfer.nmr.mgh.harvard.edu/fswiki/recon-all), and a directory where [run_first_all](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#segmentation-with-run_first_all) has sent its output in FSL. SubCortexMesh finds all subjects inside the directory and extracts their subcortical segmentation volumes ("aseg.mgz" in FreeSurfer,"\*all_fast_firstseg.nii.gz" in FSL). To facilitate later standardisation, those volumes are coregistered to their respective templates (fsaverage/MNI305 for FreeSurfer, MNI152 for FSL).
 
@@ -81,7 +94,7 @@ Notes:
     `-intref "${FSLDIR}/data/first/models_336_bin/05mm/R_Puta_05mm.bmv"` <br><br>
     The putamen used as the intensity reference is what is indicated by [FSL FIRST's documentation](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage) and 40 is just the number of modes used for most ROIs.
 
-### Converting volumes to surfaces
+### Converting volumes to surfaces {#id4}
 
 *subseg_getvol()* will create a directory called "sub_volumes" inside the path given (*outputdir*). The path to sub_volumes can then be given to the following command in order to convert the volumes into surfaces:
 
@@ -105,9 +118,9 @@ The *plot_volnext2surf()* argument is False by default, but allows users to chec
 
 Similarly, *vol2surf()* will create a directory called "sub_surfaces" inside the given outputdir.
 
-### Visualising converted surfaces meshes
+### Visualising and inspecting converted surfaces meshes {#id5}
 
-The surfaces stored in "sub_surfaces" can also be plotted together on top of a subject's corresponding volume with the surf_qcplot() function. Because the surfaces are based on a volume rigidly coregistered to fsaverage, the surfaces will match a volume generated with subseg_getvol(), i.e. "sub_volumes/sub-[id]/ants_coreg/T1\_[template]\_rigid_coreg.nii.gz" (or any volume likewise coregistered):
+For quality check, surfaces stored in "sub_surfaces" can also be plotted together on top of a subject's corresponding volume with the surf_qcplot() function. Because the surfaces are based on a volume rigidly coregistered to fsaverage, the surfaces will match a volume generated with subseg_getvol(), i.e. "sub_volumes/sub-[id]/ants_coreg/T1\_[template]\_rigid_coreg.nii.gz" (or any volume likewise coregistered):
 
 ``` python
 from subcortexmesh import surf_qcplot
@@ -123,7 +136,27 @@ surf_qcplot(
 
 Since regions will have been inflated and smoothed by default to minimise graphical artefacts (e.g. hanging sparse voxels, sharp mesh spikes), the boundaries naturally appear slightly wider than their original anatomy and overlapping. Note that because the surfaces are processed by SubCortexMesh entirely separately, the visual overlap has no effect on later metrics values. In any event, this can be run on surfaces produced with dilate_erode=False.
 
-### Computing surface-based metrics
+The autoqc_outliers() function helps quickly identify subject meshes that are outliers relatively to the cohort along five global heuristic shape features (volume, surface area, sphericity, elongation, symmetry). It returns a table stating for each subject and ROI, the number of features for which the ROI has been flagged as outlier (0-5).
+
+``` python
+from subcortexmesh import surf_qcplot, autoqc_outliers
+flag_df = autoqc_outliers(inputdir="/my_outputdir/sub_surfaces/",
+                          n_sd=2) #standard deviation at which to define outliers
+
+#Using the table, one can specifically plot the outlying ROIs, here for at least 4 features.
+for subid in flag_df.index:
+    flagged_structures = [c for c in flag_df.columns if flag_df.loc[subid, c] >= 4]
+    if not flagged_structures:
+        continue
+    print(f"{subid}: {flagged_structures}")
+    surf_qcplot(
+        volpath=f"{datapath}/ds003346_SCM/sub_volumes/{subid}/ants_coreg/T1_fsaverage_rigid_coreg.nii.gz",
+        surfdir=f"{datapath}/ds003346_SCM/sub_surfaces/{subid}", 
+        roilabel=flagged_structures)
+```
+A flagged ROI may still be fine and an anatomically correct segmentation, so users should inspect and decide for themselves whether it is valid or not. Outliers are relative to the values in the cohort and the features covered may be influenced by local structure such as brain volumes or ventricle volumes.
+
+### Computing surface-based metrics {#id6}
 
 The path to sub_surfaces/ can then be given to the following command in order to compute mesh-wise metrics:
 
@@ -159,7 +192,7 @@ The plotting arguments are also False by default and allow users to check the co
 
 ![](figures/medialcurve_standardization.png)
 
-### Merging all surfaces
+### Merging all surfaces {#id7}
 
 It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This is what the following command accomplishes, subject-per-subject (provided all subcortical meshes have been created, including the cerebella for FSL FIRST, cf. footnote 3):
 
@@ -180,7 +213,7 @@ The mesh is saved in the sub_surfaces/ subject directories, e.g. allaseg_thickne
 
 While vis_merged() does the 3D slider view, vis_merged_flat() writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, are laid out separately.
 
-### Statistical analyses
+### Statistical analyses {#id8}
 
 Users can run statistical analyses on the surface-based metrics with any potential software that can work with .vtk meshes and read their metrics scalars. SubCortexMesh provides a small wrapper for [BrainStat's SLM analysis tools](https://brainstat.readthedocs.io/en/master/python/tutorials/tutorial_1.html#python-tutorial1), which fit linear or linear mixed models with surface-based values. 
 
