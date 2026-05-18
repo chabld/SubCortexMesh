@@ -61,10 +61,10 @@ def mesh_metrics(
     Parameters
     ----------
     inputdir : str, Path
-        The path where the surface-based metrics were outputted (using mesh_metrics()).
+        The sub_surfaces/ directory where the surface objects were outputted (using vol2surf()).
     outputdir : str, Path
-        The path where metrics subcortical meshes will be saved (will create a 
-        "surface_metrics" directory).
+        The path where subcortical meshes with vertex-wise metrics assigned will be saved (will 
+        create a "surface_metrics" directory).
     template: str
         The name of the template the surfaces are supposed to be matching to. For FreeSurfer
         outputs, it is 'fsaverage'. For FSL FIRST, it is 'fslfirst'.
