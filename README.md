@@ -8,18 +8,18 @@ This toolbox provides commands to process and analyse surface-based measures of 
 
 ## Summary
 
--   [Workflow](#id1)
--   [Installation](#id2)
--   [Extracting and coregistering subcortical volumes](#id3)
--   [Converting volumes to surfaces](#id4)
--   [Visualising and inspecting converted surfaces meshes](#id5)
--   [Computing surface-based metrics](#id6)
--   [Merging all surfaces](#id7)
--   [Statistical analyses](#id8)
+- [Workflow](#workflow)
+- [Installation](#installation)
+- [Extracting and coregistering subcortical volumes](#extracting-and-coregistering-subcortical-volumes)
+- [Converting volumes to surfaces](#converting-volumes-to-surfaces)
+- [Visualising and inspecting converted surfaces meshes](#visualising-and-inspecting-converted-surfaces-meshes)
+- [Computing surface-based metrics](#computing-surface-based-metrics)
+- [Merging all surfaces](#merging-all-surfaces)
+- [Statistical analyses](#statistical-analyses)
 
 ------------------------------------------------------------------------
 
-## Workflow {#id1}
+## Workflow
 
 ![](figures/SCM_flowchart.png)
 
@@ -41,7 +41,7 @@ The toolbox automatically converts a subjects directory's subcortical segmentati
 
 [^2]: The fslfirst/MNI152 surface-based templates for each ROI have also been produced by using SubCortexMesh's own functions (subseg_getvol(), vol2surf()) with the same parameters (except smoothing=20). The segmentations volumes were obtained using FSL v.6.0.6's own probabilistic models (.bmv files in \$FSLDIR/data/first/models_336_bin/) on the standard MNI 152 1mm T1w volume (\$FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz). Cerebellar meshes were produced using [run_first](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage), with "-n 40" modes, using the putamen intensities to normalise its intensity sample as recommended by the latter's documentation.
 
-## Installation {#id2}
+## Installation
 
 SubCortexMesh can be installed via pip from the GitHub directory:
 
@@ -58,7 +58,7 @@ toolboxdata=template_data_fetch(template='fsaverage') #or 'fslfirst'
 
 ## Getting started
 
-### Extracting and coregistering subcortical volumes {#id3}
+### Extracting and coregistering subcortical volumes
 
 The extraction of segmentation volumes is done on preprocessing subjects directories, where subcortical segmentations are available. Typically, a subject directory is the output `$SUBJECTS_DIR` for FreeSurfer's [recon-all pipeline](https://surfer.nmr.mgh.harvard.edu/fswiki/recon-all), and a directory where [run_first_all](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#segmentation-with-run_first_all) has sent its output in FSL. SubCortexMesh finds all subjects inside the directory and extracts their subcortical segmentation volumes ("aseg.mgz" in FreeSurfer,"\*all_fast_firstseg.nii.gz" in FSL). To facilitate later standardisation, those volumes are coregistered to their respective templates (fsaverage/MNI305 for FreeSurfer, MNI152 for FSL).
 
@@ -94,7 +94,7 @@ Notes:
     `-intref "${FSLDIR}/data/first/models_336_bin/05mm/R_Puta_05mm.bmv"` <br><br>
     The putamen used as the intensity reference is what is indicated by [FSL FIRST's documentation](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage) and 40 is just the number of modes used for most ROIs.
 
-### Converting volumes to surfaces {#id4}
+### Converting volumes to surfaces
 
 *subseg_getvol()* will create a directory called "sub_volumes" inside the path given (*outputdir*). The path to sub_volumes can then be given to the following command in order to convert the volumes into surfaces:
 
@@ -118,7 +118,7 @@ The *plot_volnext2surf()* argument is False by default, but allows users to chec
 
 Similarly, *vol2surf()* will create a directory called "sub_surfaces" inside the given outputdir.
 
-### Visualising and inspecting converted surfaces meshes {#id5}
+### Visualising and inspecting converted surfaces meshes
 
 For quality check, surfaces stored in "sub_surfaces" can also be plotted together on top of a subject's corresponding volume with the surf_qcplot() function. Because the surfaces are based on a volume rigidly coregistered to fsaverage, the surfaces will match a volume generated with subseg_getvol(), i.e. "sub_volumes/sub-[id]/ants_coreg/T1\_[template]\_rigid_coreg.nii.gz" (or any volume likewise coregistered):
 
@@ -156,7 +156,7 @@ for subid in flag_df.index:
 ```
 A flagged ROI may still be fine and an anatomically correct segmentation, so users should inspect and decide for themselves whether it is valid or not. Outliers are relative to the values in the cohort and the features covered may be influenced by local structure such as brain volumes or ventricle volumes.
 
-### Computing surface-based metrics {#id6}
+### Computing surface-based metrics
 
 The path to sub_surfaces/ can then be given to the following command in order to compute mesh-wise metrics:
 
@@ -192,7 +192,7 @@ The plotting arguments are also False by default and allow users to check the co
 
 ![](figures/medialcurve_standardization.png)
 
-### Merging all surfaces {#id7}
+### Merging all surfaces
 
 It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This is what the following command accomplishes, subject-per-subject (provided all subcortical meshes have been created, including the cerebella for FSL FIRST, cf. footnote 3):
 
@@ -213,7 +213,7 @@ The mesh is saved in the sub_surfaces/ subject directories, e.g. allaseg_thickne
 
 While vis_merged() does the 3D slider view, vis_merged_flat() writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, are laid out separately.
 
-### Statistical analyses {#id8}
+### Statistical analyses
 
 Users can run statistical analyses on the surface-based metrics with any potential software that can work with .vtk meshes and read their metrics scalars. SubCortexMesh provides a small wrapper for [BrainStat's SLM analysis tools](https://brainstat.readthedocs.io/en/master/python/tutorials/tutorial_1.html#python-tutorial1), which fit linear or linear mixed models with surface-based values. 
 
