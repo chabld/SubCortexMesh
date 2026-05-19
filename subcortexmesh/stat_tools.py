@@ -103,11 +103,15 @@ def slm_analysis(
     ),
     key=lambda p: (m := re.search(r'sub-\w+', str(p))) and m.group() or ''
     )
-     
+    
     #exclude non applicable subjects
     if sub_list is not None:
         mesh_list = [m for m in mesh_list if any(sub in str(m) for sub in np.asarray(sub_list))]
+    else:
+        sub_list =[    d for d in os.listdir(inputdir)
+        if os.path.isdir(os.path.join(inputdir, d))]
     
+    #stop if no mesh at all 
     if len(mesh_list) <= 0:
         raise FileNotFoundError(f"No surface file for {roilabel} {metric} found.")
     
@@ -115,6 +119,13 @@ def slm_analysis(
     def getsubid(p):
         m = re.search(r'sub-\w+', str(p))
         return m.group() if m else ''
+    
+    #flag subjects with missing labels for the roilabel given
+    for sub in sub_list:
+        sub_labels = {p.stem.replace(f'_{metric}', '') for p in mesh_list if getsubid(p) == sub}
+        missing = set(labels) - sub_labels
+        if missing:
+            warnings.warn(f"{sub} missing ROIs: {missing}")
     
     surf_data = []
     appender = vtk.vtkAppendPolyData()
