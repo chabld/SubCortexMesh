@@ -4,6 +4,7 @@
 import vtk
 from vtkmodules.util import numpy_support
 import re
+import os
 import numpy as np
 import pyvista as pv
 import warnings
@@ -108,8 +109,8 @@ def slm_analysis(
     if sub_list is not None:
         mesh_list = [m for m in mesh_list if any(sub in str(m) for sub in np.asarray(sub_list))]
     else:
-        sub_list =[    d for d in os.listdir(inputdir)
-        if os.path.isdir(os.path.join(inputdir, d))]
+        sub_list =[d for d in os.listdir(inputdir)
+            if os.path.isdir(os.path.join(inputdir, d))]
     
     #stop if no mesh at all 
     if len(mesh_list) <= 0:
