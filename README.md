@@ -207,17 +207,17 @@ merge_all(
   silent=False)
 ```
 
-The mesh is saved in the sub_surfaces/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each mesh or .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
+The mesh is saved in the surface_metrics/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each mesh or .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
 
 ![](figures/merged.png)
 
-While vis_merged() does the 3D slider view, vis_merged_flat() writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, are laid out separately.
+While vis_merged() does the 3D slider view, vis_merged_flat() writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, is laid out separately.
 
 ### Statistical analyses
 
-Users can run statistical analyses on the surface-based metrics with any potential software that can work with .vtk meshes and read their metrics scalars. SubCortexMesh provides a small wrapper for [BrainStat's SLM analysis tools](https://brainstat.readthedocs.io/en/master/python/tutorials/tutorial_1.html#python-tutorial1), which fit linear or linear mixed models with surface-based values. 
+Users can run statistical analyses on the surface-based metrics with any potential software that can work with .vtk meshes and read their metrics scalars. SubCortexMesh provides a small wrapper for [BrainStat's SLM analysis tools](https://brainstat.readthedocs.io/en/master/python/tutorials/tutorial_1.html#python-tutorial1), which fit linear or linear mixed models with surface-based values.  
 
-The slm_analysis() function facilitates the process of collating surface data by reading scalars from every surface available with a (set of) selected region(s) and one metric, and appending them into a single numpy array (N subjects x V vertices). The collated meshes are ordered alphanumerically according to the subject IDs of the surface_metrics/ subfolders, so users need to make sure their model/contrast variables match that order too.
+The slm_analysis() function facilitates the process of collating surface data by reading scalars from every surface available with a (set of) selected region(s) and one metric, and appending them into a single numpy array (N subjects x V vertices). The collated meshes are ordered alphanumerically according to the subject IDs of the surface_metrics/ subfolders, so users need to make sure the order matches that of model/contrast variables (which contains behavioural/phenotypic variables to associate the surface metrics with).
 
 The other arguments are that of the SLM function. Here is an example:
 
@@ -228,10 +228,10 @@ from subcortexmesh import slm_model, slm_plot
 #hypothetical behavioural data 
 beh_data = pd.read_csv("participants.tsv", sep="\t")
 beh_data = beh_data.dropna(subset=['age'])
-#prepare model as per BrainStat's terms system
-model = FixedEffect(beh_data['age']) 
-contrast = beh_data['age']
-#Testing the effect of age on left-thalamus thickness
+#prepare model as per BrainStat's terms system 
+model = FixedEffect(beh_data['age']) #can include additional columns as variables to control for
+contrast = beh_data['age'] #the main effect of interest
+#Testing the effect of age on the bilateral thalami
 slm_model = slm_analysis(
     inputdir="surface_metrics/",
     metric='thickness',
