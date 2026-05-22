@@ -1,17 +1,11 @@
-SubCortexMesh
-=============
-
-A python toolbox for automated conversion of subcortical segmentation volumes to surface meshes and computation of vertex-wise metrics.
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
 
 .. toctree::
    :maxdepth: 1
    :caption: About
-
-   readme
    changelog
-
-.. toctree::
-   :maxdepth: 1
+   
    :caption: Functions
 
    subseg_getvol
