@@ -226,7 +226,7 @@ The other arguments are that of the SLM function. Here is an example:
 ``` python
 import pandas as pd
 from brainstat.stats.terms import FixedEffect
-from subcortexmesh import slm_model, slm_plot
+from subcortexmesh import slm_analysis, slm_plot
 #hypothetical behavioural data 
 beh_data = pd.read_csv("participants.tsv", sep="\t")
 beh_data = beh_data.dropna(subset=['age'])
