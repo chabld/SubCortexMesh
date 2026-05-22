@@ -107,7 +107,7 @@ def slm_analysis(
     
     #exclude non applicable subjects
     if sub_list is not None:
-        mesh_list = [m for m in mesh_list if any(sub in str(m) for sub in np.asarray(sub_list))]
+        mesh_list = [m for m in mesh_list if m.parent.name in set(np.asarray(sub_list))]
     else:
         sub_list =[d for d in os.listdir(inputdir)
             if os.path.isdir(os.path.join(inputdir, d))]
