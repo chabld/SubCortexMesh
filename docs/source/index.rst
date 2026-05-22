@@ -4,8 +4,11 @@
 .. toctree::
    :maxdepth: 1
    :caption: About
-   changelog
    
+   changelog
+
+.. toctree::
+   :maxdepth: 1
    :caption: Functions
 
    subseg_getvol
