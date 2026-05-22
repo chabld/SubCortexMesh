@@ -92,10 +92,12 @@ def subseg_getvol(
     if not os.path.exists(f"{inputdir}"):
         raise FileNotFoundError("Subjects directory not found. Please verify the path provided as inputdir.")
     
-    if not silent: 
+    #creates folder where volumes will go 
+    subvol_path = os.path.join(outputdir, "sub_volumes")
+    if not silent and not os.path.exists(subvol_path):
         print(f"Writing the {outputdir}/sub_volumes directory...")
-    os.makedirs(os.path.join(f"{outputdir}/sub_volumes"), exist_ok=True)
-      
+    os.makedirs(subvol_path, exist_ok=True)
+    
     #get ROI indices into an array
     #the aseg table was extracted using mri_segstats --seg on aseg.mgz, 7.4.1's $FREESURFER_HOME/subjects/fsaverage/mri/aseg.mgz
     #the fslfirst table also used mri_segstats, on a .nii volume combining *all_fast_firstseg and L_Cereb_first, and R_Cereb_first, segmented from $FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz. 

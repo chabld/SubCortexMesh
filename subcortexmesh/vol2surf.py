@@ -73,9 +73,10 @@ def vol2surf(
         if os.path.isdir(os.path.join(inputdir, d))]
     
     #creates folder where surfaces will go 
-    if not silent: 
+    subsurf_path = os.path.join(outputdir, "sub_surfaces")
+    if not silent and not os.path.exists(subsurf_path):
         print(f"Writing the {outputdir}/sub_surfaces directory...")
-    os.makedirs(f"{outputdir}/sub_surfaces", exist_ok=True)
+    os.makedirs(subsurf_path, exist_ok=True)
     
     subindex=0
     for subid in sub_list:
