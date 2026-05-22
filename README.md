@@ -46,7 +46,9 @@ The toolbox automatically converts a subjects directory's subcortical segmentati
 SubCortexMesh can be installed via pip from the GitHub directory:
 
 ``` bash
-pip install git+https://github.com/chabld/SubCortexMesh.git
+pip install subcortexmesh
+#Or to get the latest unreleased repository version:
+#pip install git+https://github.com/chabld/SubCortexMesh.git
 ```
 
 All SubCortexMesh computations are fully executed in Python, most functions mainly relying on the [VTK](https://vtk.org/) *v*9.5.2 module. Once imported in python, the toolbox requires base template data to be downloaded. The command below is triggered by every function that needs the data. It checks for its existence and if it is not found, it will assist users so they can download it in a default or custom path:
