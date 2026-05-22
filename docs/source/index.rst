@@ -3,6 +3,10 @@
 
 .. toctree::
    :maxdepth: 1
+   :caption: About
+   readme
+   changelog
+   
    :caption: Functions
 
    subseg_getvol
