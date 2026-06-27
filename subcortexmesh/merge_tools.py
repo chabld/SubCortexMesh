@@ -86,8 +86,8 @@ def merge_all(
     #merge all meshes together, storing the ROI labels as an in-vtk array
     def mesh_merger():
         appendFilter = vtk.vtkAppendPolyData()
-        for i, mesh in enumerate(mesh_list):
-            meshfile=load_mesh(f"{inputdir}/{subid}/{mesh}")
+        for i, (filename, vtk_obj) in enumerate(mesh_list):
+            meshfile = load_mesh(f"{inputdir}/{subid}/{filename}") if filename else vtk_obj
             
             # Add string array with ROI name
             tagArray = vtk.vtkIntArray()
@@ -147,38 +147,66 @@ def merge_all(
                 
                 if len(mesh_list) > 0:
                     
-                    if len(mesh_list) != nroi:
-                        if not silent: 
-                            print(f"=> {measure} ignored: all subcortices of the {template} template ({nroi}) must be available.")
-                    else:
-                        if not silent: 
-                            print(f"=> Merging {measure} ...")
-                        
-                        #force the mesh_list follow templates' ROI order as in the lookup table
-                        roi_lookup = pd.read_csv(f"{toolboxdata}/template_data/{template}/surfaces/{mergedmesh}_roi_id.txt",sep="\t")
-                        roi_order = roi_lookup['label'].tolist()
-                        #reorder mesh_list
-                        mesh_list_sorted = []
+                    if not silent:
+                        print(f"=> Merging {measure} ...")
+
+                    #force the mesh_list follow templates' ROI order as in the lookup table
+                    roi_lookup = pd.read_csv(f"{toolboxdata}/template_data/{template}/surfaces/{mergedmesh}_roi_id.txt",sep="\t")
+                    roi_order = roi_lookup['label'].tolist()
+
+                    #detect missing structures
+                    present_rois = set()
+                    for f in mesh_list:
                         for roi in roi_order:
-                            #find filename in mesh_list that starts with ROI label
-                            matches = [f for f in mesh_list if f.startswith(roi) and f.endswith(".vtk")]
-                            if matches: 
-                                mesh_list_sorted.extend(matches)
-                        mesh_list = mesh_list_sorted
-                        
-                        #merge mesh
-                        merged_mesh=mesh_merger()
-                            
-                        #save it
-                        #guarantee overwriting
-                        out_path=f"{inputdir}/{subid}/{mergedmesh}_{measure}.vtk"
-                        if os.path.exists(out_path):
-                            os.remove(out_path)
-                        
-                        writer = vtk.vtkPolyDataWriter()
-                        writer.SetFileName(out_path)
-                        writer.SetInputData(merged_mesh)
-                        _ = writer.Write()
+                            if f.startswith(roi) and f.endswith(".vtk"):
+                                present_rois.add(roi)
+                                break
+                    missing_rois = [roi for roi in roi_order if roi not in present_rois]
+
+                    if missing_rois and not silent:
+                        print(f"=> Warning: missing structures for {subid}: {', '.join(missing_rois)}. Template meshes with NaN scalars will be used.")
+
+                    #get scalar names from first available subject mesh
+                    first_file = next((f for f in mesh_list if f.endswith(".vtk")), None)
+                    scalar_names = []
+                    if first_file is not None:
+                        ref_mesh = load_mesh(f"{inputdir}/{subid}/{first_file}")
+                        pd_ref = ref_mesh.GetPointData()
+                        scalar_names = [pd_ref.GetArrayName(j) for j in range(pd_ref.GetNumberOfArrays())]
+
+                    #reorder mesh_list as tuples (filename, vtk_obj); inject template NaN meshes for missing ROIs
+                    mesh_list_sorted = []
+                    for roi in roi_order:
+                        matches = [f for f in mesh_list if f.startswith(roi) and f.endswith(".vtk")]
+                        if matches:
+                            mesh_list_sorted.append((matches[0], None))
+                        else:
+                            tmpl_mesh = load_mesh(f"{toolboxdata}/template_data/{template}/surfaces/{roi}.vtk")
+                            n_pts = tmpl_mesh.GetNumberOfPoints()
+                            for sname in scalar_names:
+                                nan_array = vtk.vtkFloatArray()
+                                nan_array.SetName(sname)
+                                nan_array.SetNumberOfTuples(n_pts)
+                                nan_array.Fill(float('nan'))
+                                tmpl_mesh.GetPointData().AddArray(nan_array)
+                            if scalar_names:
+                                tmpl_mesh.GetPointData().SetActiveScalars(scalar_names[0])
+                            mesh_list_sorted.append((None, tmpl_mesh))
+                    mesh_list = mesh_list_sorted
+
+                    #merge mesh
+                    merged_mesh=mesh_merger()
+
+                    #save it
+                    #guarantee overwriting
+                    out_path=f"{inputdir}/{subid}/{mergedmesh}_{measure}.vtk"
+                    if os.path.exists(out_path):
+                        os.remove(out_path)
+
+                    writer = vtk.vtkPolyDataWriter()
+                    writer.SetFileName(out_path)
+                    writer.SetInputData(merged_mesh)
+                    _ = writer.Write()
                 else:
                     if not silent: 
                         print(f"No mesh file (.vtk) found at all for {subid}'s surface {measure}.")
