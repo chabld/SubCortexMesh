@@ -285,7 +285,13 @@ slm_model_allaseg = slm_analysis(
     sub_list=beh_data['participant_id']
 )
 
-slm_plot(slm_model_allaseg, 't_rft', smooth_mesh=30, threshold=0.05, mode='flat',flatmode_filepath='flat_plot.png')
+slm_plot(
+    slm=slm_model_allaseg, 
+    stat='t_rft', 
+    smooth_mesh=30, 
+    threshold=0.05, 
+    mode='flat',
+    flatmode_filepath='flat_plot.png')
 ```
 
 ![](figures/flat_plot.png)
