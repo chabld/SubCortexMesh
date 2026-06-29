@@ -25,14 +25,9 @@ def merge_all(
     
     This function creates a new mesh merging all subcortical meshes outputted by 
     mesh_metrics() in a given template, for available metrics separately, keeping 
-    their vertex-wise values. It will only work if all subcortices have been 
-    processed. The merged mesh will be saved along the surface meshes in the 
-    directories used as input.
-    
-    For fslfirst, the cerebella need to have been created in FSL FIRST inside the same
-    output directory as run_first_all's, naming them "*R_Cereb_first" and "*L_Cereb_first",
-    and processed with subseg_getvol() and vol2surf(). See subseg_getvol()'s description 
-    for guidance.
+    their vertex-wise values. If not all subcortices have been processed, the function
+    will add the missing subcortices with empty NaN values instead of the metrics. The 
+    merged mesh will be saved along the surface meshes in the directories used as input.
     
     Parallel processes: to avoid conflicts, subjects will be skipped if a "isrunning" tmp 
     file exists to mark them as currently processing. The tmp file is removed at the end or 
@@ -70,10 +65,8 @@ def merge_all(
     toolboxdata=template_data_fetch(datapath=toolboxdata, template = template)
     if template=='fsaverage':
         mergedmesh='allaseg'
-        nroi=19
     if template=='fslfirst':
         mergedmesh='allfslfirst'
-        nroi=17
     
     #Subfunctions
     #mesh loader function
@@ -299,8 +292,10 @@ def vis_merged(
     
     #compute clim from the full mesh before splitting
     scalars_data = mesh.point_data[measure]
-    if clim is None:
-        clim = [np.nanmin(scalars_data), np.nanmax(scalars_data)]
+    #avoid warning if no value at all 
+    if not np.isnan(scalars_data).all():
+        if clim is None:
+            clim = [np.nanmin(scalars_data), np.nanmax(scalars_data)]
     for wm in wrapped_meshes:
         _ = plotter.add_mesh(wm, scalars=measure, cmap=cmap, clim=clim, nan_color='lightgrey')
     
@@ -422,8 +417,10 @@ def vis_merged_flat(
         mesh.set_active_scalars(scalars)
         scalars_data = mesh.point_data[scalars]
     #compute clim from the full mesh before splitting
-    if clim is None:
-        clim = [np.nanmin(scalars_data), np.nanmax(scalars_data)]
+    #avoid warning if no value at all 
+    if not np.isnan(scalars_data).all():
+        if clim is None:
+            clim = [np.nanmin(scalars_data), np.nanmax(scalars_data)]
     
     ###################################################################
     ######################EXTRACT ROI SUB-MESHES#######################

@@ -196,7 +196,7 @@ The plotting arguments are also False by default and allow users to check the co
 
 ### Merging all surfaces
 
-It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This is what the following command accomplishes, subject-per-subject (provided all subcortical meshes have been created, including the cerebella for FSL FIRST, cf. footnote 3):
+It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This is what the following command accomplishes, subject-per-subject:
 
 ``` python
 from subcortexmesh import merge_all
@@ -208,8 +208,11 @@ merge_all(
   overwrite=False, 
   silent=False)
 ```
+Even if all subcortical regions have not been created, the merge_all() function will add missing surfaces filled with NaN values instead of the metric values.[^4]
 
-The mesh is saved in the surface_metrics/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each mesh or .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
+[^4]: If one subject has missing ROIs inside their merged mesh, slm_analysis() will not run on the missing ROIs' vertices in the statistical model.
+
+The merged mesh is saved in the surface_metrics/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each mesh or .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
 
 ![](figures/merged.png)
 
