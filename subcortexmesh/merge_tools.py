@@ -204,6 +204,7 @@ def merge_all(
                         os.remove(out_path)
 
                     writer = vtk.vtkPolyDataWriter()
+                    writer.SetFileTypeToBinary()
                     writer.SetFileName(out_path)
                     writer.SetInputData(merged_mesh)
                     _ = writer.Write()
