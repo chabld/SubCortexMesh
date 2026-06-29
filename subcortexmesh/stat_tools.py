@@ -250,40 +250,8 @@ def slm_plot(
             scalars = scalars.copy().astype(float)
             scalars[mask] = np.nan
         
-        if cmap is None:
-            if np.nanmin(scalars) < 0 and np.nanmax(scalars) > 0:
-                cmap = 'RdBu_r'
-            elif np.nanmin(scalars) > 0:
-                cmap = 'Reds'
-            elif np.nanmax(scalars) < 0:
-                cmap = 'Blues_r'
-        else:
-            cmap = cmap
-        
-        if clim is None:
-            if np.nanmin(scalars) > 0:
-                clim = [0, np.nanmax(scalars)]
-            elif np.nanmax(scalars) < 0:
-                clim = [np.nanmin(scalars), 0]
-            else:
-                clim = [np.nanmin(scalars), np.nanmax(scalars)]
-        title = 't-statistics'
-    
-    #t statistics (filtered through FDR significance)
-    elif stat == 't_fdr':
-        scalars = slm.t.squeeze()
-        if slm.Q is None:
-            raise ValueError('The "fdr" correction was not applied to this SLM model.')
-        else:
-            #apply threshold according to FDR value
-            if threshold is None or threshold == 0:
-                warnings.warn('No threshold was indicated. t-values will be plotted regardless of FDR significance')
-            else:
-                scalars = slm.t.squeeze()
-                mask = np.abs(slm.Q) > threshold #p: mask above threshold
-                scalars = scalars.copy().astype(float)
-                scalars[mask] = np.nan
-            
+        #avoid warning if no value at all 
+        if not np.isnan(scalars).all():
             if cmap is None:
                 if np.nanmin(scalars) < 0 and np.nanmax(scalars) > 0:
                     cmap = 'RdBu_r'
@@ -301,6 +269,44 @@ def slm_plot(
                     clim = [np.nanmin(scalars), 0]
                 else:
                     clim = [np.nanmin(scalars), np.nanmax(scalars)]
+        
+        title = 't-statistics'
+    
+    #t statistics (filtered through FDR significance)
+    elif stat == 't_fdr':
+        scalars = slm.t.squeeze()
+        if slm.Q is None:
+            raise ValueError('The "fdr" correction was not applied to this SLM model.')
+        else:
+            #apply threshold according to FDR value
+            if threshold is None or threshold == 0:
+                warnings.warn('No threshold was indicated. t-values will be plotted regardless of FDR significance')
+            else:
+                scalars = slm.t.squeeze()
+                mask = np.abs(slm.Q) > threshold #p: mask above threshold
+                scalars = scalars.copy().astype(float)
+                scalars[mask] = np.nan
+            
+            #avoid warning if no value at all 
+            if not np.isnan(scalars).all():
+                if cmap is None:
+                    if np.nanmin(scalars) < 0 and np.nanmax(scalars) > 0:
+                        cmap = 'RdBu_r'
+                    elif np.nanmin(scalars) > 0:
+                        cmap = 'Reds'
+                    elif np.nanmax(scalars) < 0:
+                        cmap = 'Blues_r'
+                else:
+                    cmap = cmap
+                
+                if clim is None:
+                    if np.nanmin(scalars) > 0:
+                        clim = [0, np.nanmax(scalars)]
+                    elif np.nanmax(scalars) < 0:
+                        clim = [np.nanmin(scalars), 0]
+                    else:
+                        clim = [np.nanmin(scalars), np.nanmax(scalars)]
+            
             title = 't-statistics (FDR)'
     
     #t statistics (filtered through RFT significance)
@@ -339,13 +345,15 @@ def slm_plot(
             else:
                 cmap = cmap
             
-            if clim is None:
-                if np.nanmin(scalars) > 0:
-                    clim = [0, np.nanmax(scalars)]
-                elif np.nanmax(scalars) < 0:
-                    clim = [np.nanmin(scalars), 0]
-                else:
-                    clim = [np.nanmin(scalars), np.nanmax(scalars)]
+            if not np.isnan(scalars).all():
+                if clim is None:
+                    if np.nanmin(scalars) > 0:
+                        clim = [0, np.nanmax(scalars)]
+                    elif np.nanmax(scalars) < 0:
+                        clim = [np.nanmin(scalars), 0]
+                    else:
+                        clim = [np.nanmin(scalars), np.nanmax(scalars)]
+            
             title = 't-statistics (RFT)'
             
     #p-vals (FDR)
@@ -408,8 +416,10 @@ def slm_plot(
             else:
                 cmap = cmap
             
-            if clim is None:
-                clim = [0, np.nanmax(scalars)]
+            if not np.isnan(scalars).all():
+                if clim is None:
+                    clim = [0, np.nanmax(scalars)]
+            
             title = 'p-values (RFT)'
     
     elif stat == 'clusters':
