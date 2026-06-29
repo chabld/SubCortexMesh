@@ -105,7 +105,7 @@ def subseg_getvol(
     roi_indices = sorted({int(line.split()[1]) for line in open(f"{toolboxdata}/template_data/{template}/{seglabel}_labels.txt") if not line.startswith("#")})
     
     #list subs (1st depth of inputdir, and only counted as sub folders with the right "sub-xxx" pattern)
-    pattern = r'(sub-[^_]+)'
+    pattern = r'(sub-[\w-]+)'
     sub_list = [f for f in next(os.walk(inputdir))[1] if re.search(pattern, f)]
     sub_list.sort()     
         
