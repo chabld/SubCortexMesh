@@ -7,6 +7,7 @@ import re
 import os
 import numpy as np
 import pyvista as pv
+import pandas as pd
 import warnings
 from typing import Optional, Union, Sequence, Tuple
 from pathlib import Path
@@ -16,6 +17,7 @@ from brainstat.stats.SLM import SLM
 from brainstat._typing import ArrayLike
 from brainstat.mesh.data import mesh_smooth
 from brainspace.vtk_interface.wrappers import BSPolyData
+from subcortexmesh import template_data_fetch
 
 def slm_analysis(
     inputdir: Union[str, Path],
@@ -177,8 +179,12 @@ def slm_analysis(
     )
     slm_model.fit(surf_data)
     
-    return slm_model
+    #save analysed labels to inform plotter
+    slm_model.roilabel=roilabel
     
+    return slm_model
+
+
 #####################################################################################
 ##########Statistical analyses using random field theory cluster correction##########
 
@@ -492,3 +498,118 @@ def slm_plot(
             )
         else:
             raise ValueError('The "mode" argument can only be "anatomical" (default) or "flat".')
+            
+
+#####################################################################################
+##########Printing description and coordinates of the clusters detected##############
+
+def cluster_summary(
+    slm_model,
+    template: str,
+    p: float = 0.05,
+    toolboxdata: Optional[Union[str, Path]] = None,
+):
+    """Clusters description
+    
+    This function will print significant clusters from a slm_model object returned by 
+    slm_analysis(). It gives the clusters' corresponding region-of-interest label, their 
+    size (n_vert: number of vertices), XYZ coordinates, peak t-statistics and cluster-wise 
+    p-values. 
+    
+    Parameters
+    ----------
+    slm: SLM object
+        BrainStat SLM object containing the statistical outputs.
+    template: str
+        The name of the template the surfaces are supposed to be matching to. For FreeSurfer
+        outputs, it is 'fsaverage'. For FSL FIRST, it is 'fslfirst'.
+        cluster_threshold : float, optional
+    p: float
+        Cluster-wise p-value threshold of the clusters to include. Default is .05.
+    toolboxdata: str, Path, optional
+        The path of the "subcortexmesh_data" package data directory. The  default path 
+        is assumed to be the user's home directory (pathlib's Path.home()). Users will 
+        be prompted to download it if not found.
+    """
+    
+    tstat = slm_model.t.flatten()
+    coord = slm_model.coord  # shape (3, n_vertices)
+    
+    #fetch toolboxdata
+    toolboxdata = template_data_fetch(datapath=toolboxdata, template=template)
+    if template=='fsaverage':
+        roi_id_path = f"{toolboxdata}/template_data/{template}/surfaces/allaseg_roi_id.txt"
+    if template=='fslfirst':
+        roi_id_path = f"{toolboxdata}/template_data/{template}/surfaces/allfslfirst_roi_id.txt"
+        
+    #impose template if does not correspond to roilabel given as it seems to fail silently:
+    if ((isinstance(slm_model.roilabel, str) and slm_model.roilabel=='allaseg') or (len(slm_model.roilabel)==1 and slm_model.roilabel[0] == 'allaseg')) and template == 'fslfirst':
+        warnings.warn(f"Wrong template for a model tested on 'allaseg': using 'fsaverage' instead...")
+        toolboxdata = template_data_fetch(datapath=toolboxdata, template='fsaverage')
+        roi_id_path = f"{toolboxdata}/template_data/fsaverage/surfaces/allaseg_roi_id.txt"
+    if ((isinstance(slm_model.roilabel, str) and slm_model.roilabel=='allfslfirst') or (len(slm_model.roilabel)==1 and slm_model.roilabel[0] == 'allfslfirst')) and template=='fsaverage':
+        warnings.warn(f"Wrong template for a model tested on 'allfslfirst': using 'fslfirst' instead...")
+        toolboxdata = template_data_fetch(datapath=toolboxdata, template='fslfirst')
+        roi_id_path = f"{toolboxdata}/template_data/fslfirst/surfaces/allfslfirst_roi_id.txt"
+    
+    roi_lookup = pd.read_csv(roi_id_path, sep='\t')
+    
+    #get vertex IDs straight from the merged template if the merged mesh given ('allaseg', 'allfslfirst')
+    #other wise, build roi_id from scratch
+    if (isinstance(slm_model.roilabel, str) and (slm_model.roilabel=='allaseg' or slm_model.roilabel=='allfslfirst')) or (len(slm_model.roilabel)==1 and slm_model.roilabel[0] in ('allaseg', 'allfslfirst')):
+        roi_id_map = np.array(slm_model.surf.GetPointData().GetArray('roi_id')).flatten()
+        roi_names = dict(zip(roi_lookup['id'].astype(int), roi_lookup['label']))
+    else:
+        #based on the order of the labels entered in the model, the ROI template IDs and the vertex count
+        labels = [slm_model.roilabel] if isinstance(slm_model.roilabel, str) else list(slm_model.roilabel)
+        roi_lookup_selected = roi_lookup.set_index('label').loc[labels]  # preserves input order
+        roi_id_map=np.concatenate([np.full(int(row.n_vert), int(row.id))
+                                    for _, row in roi_lookup_selected.iterrows()])
+        roi_names = dict(zip(roi_lookup_selected['id'].astype(int), roi_lookup_selected.index))
+    
+    results = {}
+    
+    for contrast_idx, contrast_label, peak_fn in [
+        (0, "Positive contrast", np.argmax),
+        (1, "Negative contrast", np.argmin),
+    ]:
+        clus_df = slm_model.P['clus'][contrast_idx].copy()
+        if clus_df.empty:
+            results[contrast_label] = "No significant clusters"
+            continue
+        
+        clus_id_map = slm_model.P['clusid'][contrast_idx].flatten()
+        
+        sig = clus_df[clus_df['P'] < p].copy().reset_index(drop=True)
+        sig['clusid'] = range(1, len(sig) + 1)
+        
+        if len(sig) == 0:
+            results[contrast_label] = "No significant clusters"
+            continue
+        
+        sig['P'] = sig['P'].round(3).apply(lambda x: "<0.001" if x == 0.0 else x)
+        sig = sig.drop(columns=['resels'], errors='ignore')
+        sig[['X', 'Y', 'Z', 'tstat', 'region']] = np.nan
+        sig['region'] = None
+        
+        for i, row in sig.iterrows():
+            clusno = int(row['clusid'])
+            
+            clus_tstat = tstat.copy()
+            clus_tstat[clus_id_map != clusno] = 0
+            
+            peak_vtx = peak_fn(clus_tstat)
+            
+            sig.at[i, 'tstat'] = round(float(clus_tstat[peak_vtx]), 2)
+            
+            if coord is not None:
+                sig.at[i, 'X'] = round(float(coord[0, peak_vtx]), 1)
+                sig.at[i, 'Y'] = round(float(coord[1, peak_vtx]), 1)
+                sig.at[i, 'Z'] = round(float(coord[2, peak_vtx]), 1)
+            
+            roi_id_at_peak = int(roi_id_map[peak_vtx])
+            sig.at[i, 'region'] = roi_names.get(roi_id_at_peak, f"unknown (id={roi_id_at_peak})")
+        
+        results[contrast_label] = sig
+    
+    return results

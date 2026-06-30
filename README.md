@@ -250,6 +250,18 @@ slm_model = slm_analysis(
 )
 ```
 
+Description for significant clusters can be printed with the following command:
+
+``` python
+    cluster_summary(slm_model, template='fsaverage')
+```
+```Output
+{'Positive contrast': 'No significant clusters',
+ 'Negative contrast':    clusid  nverts       P      X      Y      Z  tstat          region
+ 0       1  2713.0  <0.001  152.0  120.4  153.6  -4.08   left-thalamus
+ 1       2  1846.0  <0.001  125.3  132.8  142.0  -3.53  right-thalamus}
+```
+
 Once the analysis is complete, the outputted cluster maps in the SLM object (here slm_model) can be visualised as follows:
 
 ``` python
