@@ -11,6 +11,7 @@ from subcortexmesh.qc_tools import (surf_qcplot)
 from subcortexmesh.qc_tools import (autoqc_outliers)
 from subcortexmesh.stat_tools import (slm_analysis)
 from subcortexmesh.stat_tools import (slm_plot)
+from subcortexmesh.stat_tools import (cluster_summary)
 
 __all__ = [
     "template_data_fetch",
@@ -23,5 +24,6 @@ __all__ = [
     "surf_qcplot",
     "autoqc_outliers",
     "slm_analysis",
-    "slm_plot"
+    "slm_plot",
+    "cluster_summary"
 ]
