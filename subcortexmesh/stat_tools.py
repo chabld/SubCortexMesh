@@ -511,10 +511,9 @@ def cluster_summary(
 ):
     """Clusters description
     
-    This function will print significant clusters from a slm_model object returned by 
-    slm_analysis(). It gives the clusters' corresponding region-of-interest label, their 
-    size (n_vert: number of vertices), XYZ coordinates, peak t-statistics and cluster-wise 
-    p-values. 
+    This function will print significant clusters from a SLM object returned by slm_analysis(). 
+    It gives the positive and negative clusters' corresponding regions-of-interest labels, their 
+    sizes (n_vert: number of vertices), XYZ coordinates, peak t-statistics and cluster-wise p-values. 
     
     Parameters
     ----------
