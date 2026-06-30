@@ -253,7 +253,7 @@ slm_model = slm_analysis(
 Description for significant clusters can be printed with the following command:
 
 ``` python
-    cluster_summary(slm_model, template='fsaverage')
+cluster_summary(slm_model, template='fsaverage')
 ```
 ```Output
 {'Positive contrast': 'No significant clusters',
