@@ -327,7 +327,6 @@ def vis_merged(
 def vis_merged_flat(
     merged_vtk: Union[str, Path, vtk.vtkPolyData],
     output_path: Union[str, Path] = "flat_plot.png",
-    ncols: int = 4,
     silent: bool = False,
     scalars: str = None,
     cmap: str = 'viridis',
@@ -352,8 +351,6 @@ def vis_merged_flat(
         Path to the merged .vtk file produced by merge_all().
     output_path : str, Path
         Path for the output PNG file. Default is 'flat_plot_preview.png'.
-    ncols : int
-        Number of columns in the grid layout. Default is 4.
     silent : bool
         Whether to suppress progress messages. Default is False.
     scalars: str
