@@ -84,7 +84,7 @@ Notes:
 
 -   In FSL FIRST, optional [cerebellar surfaces](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage) also need to be named \**L-Cereb_first.nii.gz* and \**R-Cereb_first.nii.gz*.[^3]
 
--   The coregistration requires T1 volumes to be present for each subject: it should be stored as [sub-ID]/mri/T1.mgz for FreeSurfer and stored in the same "inputdir" path for FSL FIRST (the function will search for files containing the sub-ID and "T1w.nii" for each subject).
+-   The coregistration requires T1-weighted volumes to be present for each subject: a T1w volume should be stored as [sub-ID]/mri/T1.mgz for FreeSurfer and stored in the same "inputdir" path for FSL FIRST (the function will search for files containing the sub-ID and "T1w.nii" for each subject).
 
 [^3]: Cerebellar segmentations can be done in FSL with the following commands (do the same for `L_Cereb`): <br>
     `first_flirt [subject's T1file] "[subject's subdirectory]/[sub-id]" -cort` <br>
@@ -114,7 +114,7 @@ vol2surf(
     )
 ```
 
-The *plot_volnext2surf()* argument is False by default, but allows users to check if they are satisfied with the resulting mesh. Below is an example with a left thalamus: A) shows the volume and the surface created from the former superimposed, B) the voxel-based volume, C) the vertex-wise surface (with VTK' [discrete marching cubes](https://vtk.org/doc/nightly/html/classvtkDiscreteMarchingCubes.html) method, no smoothing), D) the surface after dilation+erosion and smoothing.
+The *plot_volnext2surf()* argument is False by default, but allows users to check if they are satisfied with the resulting mesh. Below, we show stages of the conversion process on a left thalamus: A) shows the volume and the surface (created from the former) superimposed, B) the voxel-based volume, C) the vertex-wise surface (created with VTK' [discrete marching cubes](https://vtk.org/doc/nightly/html/classvtkDiscreteMarchingCubes.html) method, no smoothing), D) the surface after dilation+erosion and smoothing.
 
 ![](figures/subseg_getvol_vol2surf.png)
 
@@ -122,7 +122,7 @@ Similarly, *vol2surf()* will create a directory called "sub_surfaces" inside the
 
 ### Visualising and inspecting converted surfaces meshes
 
-For quality check, surfaces stored in "sub_surfaces" can also be plotted together on top of a subject's corresponding volume with the surf_qcplot() function. Because the surfaces are based on a volume rigidly coregistered to fsaverage, the surfaces will match a volume generated with subseg_getvol(), i.e. "sub_volumes/sub-[id]/ants_coreg/T1\_[template]\_rigid_coreg.nii.gz" (or any volume likewise coregistered):
+For quality check, surfaces stored in "sub_surfaces" can also be plotted together on top of a subject's corresponding volume with the surf_qcplot() function. Because the surfaces are based on a volume rigidly coregistered to fsaverage, the surfaces will match a volume coregistered with subseg_getvol(), i.e. "sub_volumes/sub-[id]/ants_coreg/T1\_[template]\_rigid_coreg.nii.gz" (or any volume likewise coregistered to the template):
 
 ``` python
 from subcortexmesh import surf_qcplot
@@ -136,16 +136,16 @@ surf_qcplot(
 
 ![](figures/surf_qcplot.png)
 
-Since regions will have been inflated and smoothed by default to minimise graphical artefacts (e.g. hanging sparse voxels, sharp mesh spikes), the boundaries naturally appear slightly wider than their original anatomy and overlapping. Note that because the surfaces are processed by SubCortexMesh entirely separately, the visual overlap has no effect on later metrics values. In any event, this can be run on surfaces produced with dilate_erode=False.
+Since regions will have been inflated and smoothed by default in vol2surf() to minimise graphical artefacts (e.g. hanging sparse voxels, sharp mesh spikes), the boundaries naturally appear slightly wider than their original anatomy and overlapping. Note that because the surfaces are processed by SubCortexMesh entirely separately, the visual overlap has no effect on later metrics values. In any event, this can be run on surfaces produced with dilate_erode=False.
 
-The autoqc_outliers() function helps quickly identify subject meshes that are outliers relatively to the cohort along five global heuristic shape features (volume, surface area, sphericity, elongation, symmetry). It returns a table stating for each subject and ROI, the number of features for which the ROI has been flagged as outlier (0-5).
+Optionally, autoqc_outliers() function helps quickly identify subject meshes that are outliers relatively to the cohort along five global heuristic shape features (volume, surface area, sphericity, elongation, symmetry). It returns a table stating for each subject and ROI, the number of features for which the ROI has been flagged as outlier (0-5).
 
 ``` python
 from subcortexmesh import surf_qcplot, autoqc_outliers
 flag_df = autoqc_outliers(inputdir="/my_outputdir/sub_surfaces/",
                           n_sd=2) #standard deviation at which to define outliers
 
-#Using the table, one can specifically plot the outlying ROIs, here for at least 4 features.
+#Using the table, one can specifically plot subjects and the concerned outlying ROIs, here for at least 4 outlying features:
 for subid in flag_df.index:
     flagged_structures = [c for c in flag_df.columns if flag_df.loc[subid, c] >= 4]
     if not flagged_structures:
@@ -156,7 +156,7 @@ for subid in flag_df.index:
         surfdir=f"{datapath}/ds003346_SCM/sub_surfaces/{subid}", 
         roilabel=flagged_structures)
 ```
-A flagged ROI may still be fine and an anatomically correct segmentation, so users should inspect and decide for themselves whether it is valid or not. Outliers are relative to the values in the cohort and the features covered may be influenced by local structure such as brain volumes or ventricle volumes.
+A flagged ROI may still be fine and an anatomically correct segmentation, so users should inspect and decide for themselves whether it is valid or not. Outliers are relative to the values in the cohort and the features covered may be influenced by local structure changes such as brain volumes or ventricle volumes.
 
 ### Computing surface-based metrics
 
@@ -171,7 +171,7 @@ mesh_metrics(
   template='fsaverage',
   metric=['thickness','surfarea','curvature'], #default, can also be one string
   #roilabel=['left-thalamus','right-thalamus'], #if one wants to only compute specific ROIs
-  smooth=[0,5,5], #FMHW smoothing for: thickness, surface area, curvature
+  smooth=[0,5,5], #FMHW smoothing, in order, for: thickness, surface area, curvature
   plot_medial_curve=True, 
   plot_projection=True, 
   native_meshes=True, 
@@ -179,9 +179,9 @@ mesh_metrics(
   silent=False)
 ```
 
-The measure will create a "surface_metrics/" directory in the *outputdir*. The *native_meshes* argument gives the option to also save .vtk surface meshes in native space, containing the scalars for each metric.
+The mesh_metrics() function will create a "surface_metrics/" directory in the *outputdir*. The *native_meshes* argument gives the option to also save .vtk surface meshes in native space, containing the scalars for each metric.
 
-mesh_metrics() also saves native summary statistics tables in each subject directory. E.g., surface_metrics/sub-xxx/surfarea_stats.txt:
+mesh_metrics() also saves summary statistics tables in each subject directory, for the native space meshes. E.g., surface_metrics/sub-xxx/surfarea_stats.txt:
 
 | label                | mean  | sd    | min   | max   | range | n_vert |
 |:---------------------|:------|:------|:------|:------|:------|:-------|
@@ -208,7 +208,7 @@ merge_all(
   overwrite=False, 
   silent=False)
 ```
-Even if all subcortical regions have not been created, the merge_all() function will add missing surfaces filled with NaN values instead of the metric values.[^4]
+[version >1.0.0] Even if all subcortical regions have not been created, the merge_all() function will add missing surfaces filled with NaN values instead of the metric values.[^4]
 
 [^4]: If one subject has missing ROIs inside their merged mesh, slm_analysis() will not run on the missing ROIs' vertices in the statistical model.
 
@@ -216,7 +216,7 @@ The merged mesh is saved in the surface_metrics/ subject directories, e.g. allas
 
 ![](figures/merged.png)
 
-While vis_merged() does the 3D slider view, vis_merged_flat() writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, is laid out separately.
+While vis_merged() includes the 3D slider view, vis_merged_flat() writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, is laid out separately.
 
 ### Statistical analyses
 
@@ -250,7 +250,7 @@ slm_model = slm_analysis(
 )
 ```
 
-Description for significant clusters can be printed with the following command:
+[version >1.0.0] Description for significant clusters can be printed with the following command:
 
 ``` python
 cluster_summary(slm_model, template='fsaverage')
