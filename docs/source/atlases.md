@@ -26,7 +26,7 @@ An anatomical atlas has been created in surface space for SubCortexMesh (SCM)'s 
 Depending on the subcortical region, labels from various volumetric atlases were selected. Because of high granularity lost or scrambled upon conversion to surface, some ROIs were merged, and other excluded, especially when buried inside regions or too subtle to be correctly captured on the surface "shell". We also took advantage of FreeSurfer _freeview_'s "3D isosurface" view to guide assessment of the converted surfaces.
 
 The atlas includes the following subsegmentations:
-<div style="font-size:80%">
+
 - **Globus pallidus interna and externa:** we relied on the CIT168 atlas from the CIT68 Reinforcement Learning Atlas (Pauli, Nili & Tyszka, 2018), using the MNI 152 space. Specifically, "CIT168_Reinf_Learn_v1.1.0/MNI152-Nonlin-Asym-2009c/CIT168toMNI152-2009c_det.nii" in [OSF](https://doi.org/10.17605/OSF.IO/R2HVK). The atlas was split to distinguish left and right ROIs.
 
 - **Cerebellar layers:** we relied on the Diedrichsen 2009 atlas (Diedrichsen et al., 2009; Diedrichsen et al., 2011). Specifically, the [probability atlas](https://github.com/DiedrichsenLab/cerebellar_atlases/tree/master/Diedrichsen_2009) in MNI space ("atl-Anatom_space-MNISym_probseg.nii") was converted to volumetric segmentations with minimal threshold (whichever label had the strongest value above 0). 
@@ -46,7 +46,7 @@ Excluded ROIs included: Anterior-amygdaloid-area, as outside the ASeg volume; Me
 - **Ventral diencephalon (DC) subcomponents:** we created our own volumetric atlas, likewise made of different volumetric atlases, stitched together to "populate" the parts of the ventral DC, called ["Ventral DC Frankenstein"](https://github.com/chabld/Ventral_DC_Frankenstein). The atlas included [Brainstem Navigator](https://www.nitrc.org/projects/brainstemnavig/)'s atlas (García-Gomar et al., 2019; Singh et al., 2021) for the medial and lateral geniculate nuclei (specifically taken from "2b.DiencephalicNucleiAtlas_MNI"), with >0 probability threshold as opposed to 0.35 (which was justified by the Ventral DC's own rough delineation as opposed to the high resolution segmentation the Brainstem Navigator is based upon). It also included the John Hopkins University (JHU)'s DTI atlas (Hua et al. 2008; Wakana et al. 2007) for the cerebral peduncles, (specifically, the [neurovault ICBM 1mm version](https://identifiers.org/neurovault.image:1401)). Finally, it made use of the same CIT168 atlas as for the pallidum (Pauli et al., 2018) due to its overlapping labels (Hypothalamus, Red nucleus etc.). The subtantia nigras's two pars were merged, as well as the parabrachial pigmented and ventral tegmental area, to facilitate volume-to-surface projection due to difficulty distinguishing them in the projected surface.
 
 Note about MNI space: SCM's surface template are based on ASeg which is strictly speaking in MNI305 space. CIT168 and Diedrichsen 2009 were resamped to MNI305 (ASeg's space) using the Neuroatlas R package's [MNI152_to_MNI305](https://bbuchsbaum.github.io/neuroatlas/reference/MNI305_to_MNI152.html) transformation matrices (Buchsbaum, 2006; see R/coordinate_spaces.R). FreeSurfer's subcortical segmentations were simply resampled with the same software's "mri_vol2vol --regheader" which gave satisfying results.
-</div>
+
 
 ### Volume to surface projection
 
@@ -109,7 +109,7 @@ The table below lays out every region included in the anatomical atlas along wit
 
 # References
 
-<div style="font-size:50%">
+```{div} small-text
 - Buchsbaum B (2026). neuroatlas: Neuroimaging Atlases and Parcellations. R package version 0.1.0, https://github.com/bbuchsbaum/neuroatlas.
 - Diedrichsen, J., Balsters, J. H., Flavell, J., Cussans, E., & Ramnani, N. (2009). A probabilistic atlas of the human cerebellum. Neuroimage.
 - Diedrichsen, J., Maderwald, S., Kuper, M., Thurling, M., Rabe, K., Gizewski, E. R., et al. (2011). Imaging the deep cerebellar nuclei: A probabilistic atlas and normalization procedure. Neuroimage.
@@ -125,4 +125,4 @@ The table below lays out every region included in the anatomical atlas along wit
 - Singh, K., García-Gomar, M. G., & Bianciardi, M. (2021). Probabilistic atlas of the mesencephalic reticular formation, isthmic reticular formation, microcellular tegmental nucleus, ventral tegmental area nucleus complex, and caudal–rostral linear raphe nucleus complex in living humans from 7 Tesla magnetic resonance imaging. Brain Connectivity, 11(8), 613-623.
 - Virtanen P, Gommers R, Oliphant TE, et al. SciPy 1.0: fundamental algorithms for scientific computing in Python. Nat Methods. 2020;17(3):261-272. doi:10.1038/s41592-019-0686-2
 - Wakana, S., Caprihan, A., Panzenboeck, M. M., Fallon, J. H., Perry, M., Gollub, R. L., ... & Mori, S. (2007). Reproducibility of quantitative tractography methods applied to cerebral white matter. Neuroimage, 36(3), 630-644.
-</div>
+```

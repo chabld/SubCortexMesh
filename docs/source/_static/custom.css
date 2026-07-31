@@ -14,3 +14,7 @@
 .scrollable-table table {
     width: 100%;
 }
+
+.small-text {
+    font-size: 50%;
+}
