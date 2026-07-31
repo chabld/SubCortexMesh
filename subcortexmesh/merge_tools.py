@@ -5,9 +5,11 @@ import pyvista as pv
 import numpy as np
 import pandas as pd 
 import os
+import re
 import vtk
 import tempfile
 import time
+import warnings
 from typing import Optional, Union, Sequence, Tuple
 from pathlib import Path
 from subcortexmesh import template_data_fetch
@@ -219,7 +221,9 @@ def vis_merged(
     merged_vtk: Union[str, Path, vtk.vtkPolyData], 
     cmap: str = "viridis", 
     clim: Optional[Tuple[float, float]] = None,
-    smooth_mesh:  Optional[int] = 0
+    smooth_mesh:  Optional[int] = 0,
+    atlas_map: Optional[bool] = False,
+    toolboxdata: Optional[Union[str, Path]] = None
     ):
     """Interactive 3D viewer for a merged subcortical surface.
     
@@ -239,6 +243,12 @@ def vis_merged(
         Sequence of float stating the minimum and maximum value of the color bar. Default is minimum and maximum value.
     smooth_mesh: int, optional
         Number of iterations of cosmetic smoothing to make the surface appear smoother. Default is 0.
+    atlas_map: bool, optional
+        When True, adds toggle buttons to show anatomical atlas' colour labels and/or outlines on top of the mesh values. Requires the toolboxdata argument.
+    toolboxdata : str, Path, optional
+        The path of the "subcortexmesh_data" package data directory. The  default path 
+        is assumed to be the user's home directory (pathlib's Path.home()). It is only needed
+        if users want to plot the atlas toggle. Users will be prompted to download it if not found.
     """
     if isinstance(merged_vtk, (str, Path)):
         reader = vtk.vtkPolyDataReader()
@@ -248,6 +258,38 @@ def vis_merged(
     else:
         mesh = pv.wrap(merged_vtk)
     
+    ###################################################################
+    ##############################DEFINE SCALARS#######################
+    
+    measure = mesh.active_scalars_name
+    if measure is None:
+        raise ValueError(
+            "No active scalar (surface-based value) found in the mesh. Make sure the file was produced by merge_all()."
+        )
+    
+    #If atlas needed, fetched from the template data and appended as a mesh scalar
+    atlas_lut = None
+    if atlas_map:
+        if mesh.GetNumberOfPoints()==95718:
+            template='fsaverage'
+            toolboxdata = template_data_fetch(datapath=toolboxdata, template=template)
+            arraypath=f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}.npy'
+            if os.path.isfile(arraypath):
+                #set colour and atlas mask to the mesh
+                atlasarray=np.load(arraypath)
+                atlas_lut=pd.read_csv(f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}_names.txt')
+                #read RGB colour code in the LUT and make a 3d colour array
+                lut_rgb = atlas_lut.set_index('new_id')[['R', 'G', 'B']]
+                atlas_rgb = np.array(
+                    [tuple(lut_rgb.loc[int(v)]) if int(v) in lut_rgb.index else (211, 211, 211) for v in atlasarray], dtype=np.uint8)
+                #append to mesh
+                mesh.point_data['atlas_rgb'] = atlas_rgb
+                mesh.point_data['atlas_id'] = atlasarray.astype(int)   #id for hover lookup
+            else:
+                raise FileNotFoundError(f"No atlas was found in the template data directory ({toolboxdata}). To obtain the atlas, remove the directory and download the up-to-date data using template_data_fetch().")
+        elif mesh.GetNumberOfPoints()==82412:
+            warnings.warn(f"No atlas parcellation exists for the FSL FIRST merged mesh yet, so the atlas_map argument will be ignored.")
+        
     #appearance smoother
     if smooth_mesh is not None and smooth_mesh > 0:
         s = vtk.vtkWindowedSincPolyDataFilter()
@@ -284,20 +326,49 @@ def vis_merged(
     original_points = [wm.points.copy() for wm in wrapped_meshes]
     
     plotter = pv.Plotter()
-    measure = mesh.active_scalars_name
-    if measure is None:
-        raise ValueError(
-            "No active scalar (surface-based value) found in the mesh. Make sure the file was produced by merge_all()."
-        )
-    
     #compute clim from the full mesh before splitting
     scalars_data = mesh.point_data[measure]
     #avoid warning if no value at all 
     if not np.isnan(scalars_data).all():
         if clim is None:
             clim = [np.nanmin(scalars_data), np.nanmax(scalars_data)]
-    for wm in wrapped_meshes:
-        _ = plotter.add_mesh(wm, scalars=measure, cmap=cmap, clim=clim, nan_color='lightgrey')
+    
+    base_actors = [] #base mesh
+    atlas_actors = [] #atlas mesh
+    atlas_meshes = []  #copies to adapt to slider
+    actor_mesh_map = {}
+    outline_actors = []
+    outline_meshes = [None] * len(wrapped_meshes) #atlas outline
+    outline_original_points = [None] * len(wrapped_meshes) 
+    for idx, wm in enumerate(wrapped_meshes):
+        m_actor = plotter.add_mesh(wm, scalars=measure, cmap=cmap, clim=clim, nan_color='lightgrey')
+        base_actors.append(m_actor)
+        actor_mesh_map[m_actor] = wm
+        if atlas_map:
+            am = wm.copy()
+            a_actor = plotter.add_mesh(am, scalars='atlas_rgb', rgb=True)
+            a_actor.visibility = False
+            atlas_actors.append(a_actor)
+            atlas_meshes.append(am)
+            actor_mesh_map[a_actor] = am
+            
+            #outline settings
+            label_values = np.unique(wm.point_data['atlas_id'])
+            if len(label_values) > 1:
+                boundary_values = np.arange(label_values.min() - 0.5, label_values.max() + 1.5, 1.0)
+                ol = wm.contour(isosurfaces=boundary_values, scalars='atlas_id')
+                if ol.n_points > 0:
+                    #adapt colour to nearest neighbor vertices
+                    locator = vtk.vtkPointLocator()
+                    locator.SetDataSet(wm)
+                    locator.BuildLocator()
+                    nearest_ids = np.array([locator.FindClosestPoint(pt) for pt in ol.points])
+                    ol.point_data['atlas_rgb'] = wm.point_data['atlas_rgb'][nearest_ids]
+                    o_actor = plotter.add_mesh(ol, scalars='atlas_rgb', rgb=True, line_width=2, render_lines_as_tubes=True)
+                    o_actor.visibility = False
+                    outline_actors.append(o_actor)
+                    outline_meshes[idx] = ol
+                    outline_original_points[idx] = ol.points.copy()
     
     # Y flipped as VTK's coord syst not following RAS
     plotter.reset_camera()
@@ -305,16 +376,93 @@ def vis_merged(
     plotter.camera_position = [loc, foc, (0, -1, 1)]
     
     def update_distance(distfactor):
-        for wm, centroid, orig in zip(wrapped_meshes, centroids, original_points):
+        for i, (wm, centroid, orig) in enumerate(zip(wrapped_meshes, centroids, original_points)):
             direction = centroid - global_centroid
             norm = np.linalg.norm(direction)
             if norm > 0:
                 direction = direction / norm
             translation = direction * distfactor
-            wm.points[:] = orig - centroid + (centroid + translation)
+            new_points = orig - centroid + (centroid + translation)
+            wm.points[:] = new_points
+            if atlas_map:
+                atlas_meshes[i].points[:] = new_points   
+                if outline_meshes[i] is not None: 
+                    outline_meshes[i].points[:] = outline_original_points[i] + translation
+        
         plotter.render()
     
-    plotter.add_slider_widget(update_distance, rng=[0, 50], value=0)
+    #slider settings
+    plotter.add_slider_widget(
+        update_distance, 
+        rng=[0, 50], 
+        value=0,
+        pointa=(0.25, 0.92),   # left end, higher up (closer to 1.0 = top)
+        pointb=(0.75, 0.92),   # right end, same height as pointa
+        tube_width=0.005,      # thinner track (default is usually ~0.008)
+        slider_width=0.02,     # thinner knob (default is usually ~0.02)
+    )
+    
+    if atlas_map:
+        def toggle_atlas(flag):
+            for a in atlas_actors:
+                a.visibility = flag
+            for m in base_actors:
+                m.visibility = not flag
+            plotter.render()
+        
+        #checkbox for atlas colours
+        plotter.add_checkbox_button_widget(
+            toggle_atlas,
+            value=False, #not visible by default
+            position=(10, plotter.window_size[1] - 150),
+            size=50,
+            border_size=3,
+            color_on='mediumseagreen',
+            color_off='grey',
+        )
+        
+        #checkbox for outlines
+        def toggle_outline(flag):
+            for o in outline_actors:
+                o.visibility = flag
+            plotter.render()
+
+        plotter.add_checkbox_button_widget(
+            toggle_outline,
+            value=False, #not visible by default
+            position=(70, plotter.window_size[1] - 150), 
+            size=50,
+            border_size=3,
+            color_on='dodgerblue',
+            color_off='grey',
+        )
+        
+        #hover settings
+        hover_picker = vtk.vtkCellPicker()
+        hover_picker.SetTolerance(0.0005)
+        label_lookup = atlas_lut.set_index('new_id')['new_label'].to_dict()
+        
+        plotter.add_text("", position=(10, 10), font_size=10, color='black', name='hover_label')
+        
+        def on_mouse_move(caller, event):
+            x, y = plotter.iren.interactor.GetEventPosition()
+            hover_picker.Pick(x, y, 0, plotter.renderer)
+            actor = hover_picker.GetActor()
+            point_id = hover_picker.GetPointId()
+            
+            label_text = ""
+            if actor is not None and point_id is not None and point_id >= 0:
+                src_mesh = actor_mesh_map.get(actor)
+                if src_mesh is not None and 'atlas_id' in src_mesh.point_data:
+                    atlas_id = int(src_mesh.point_data['atlas_id'][point_id])
+                    label_text = label_lookup.get(atlas_id, "")
+            
+            plotter.add_text(label_text, position=(10, 10), font_size=10, color='black', name='hover_label')
+            plotter.render()
+        
+        plotter.iren.add_observer("MouseMoveEvent", on_mouse_move)
+    
+    #title
     if isinstance(merged_vtk, (str, Path)):
         plotter.show(title=f"{str(merged_vtk)} - {measure}")
     else:
@@ -332,6 +480,7 @@ def vis_merged_flat(
     cmap: str = 'viridis',
     clim: Optional[Tuple[float, float]] = None,
     smooth_mesh:  Optional[int] = 0,
+    atlas_map = False,
     toolboxdata: Optional[Union[str, Path]] = None
 ):
     """Flat 2D grid preview of all subcortical ROIs from a merged VTK surface
@@ -363,6 +512,8 @@ def vis_merged_flat(
         Sequence of float stating the minimum and maximum value of the color bar. Default is minimum and maximum value.
     smooth_mesh: int, optional
         Number of iterations of cosmetic smoothing to make the surface appear smoother. Default is 0.
+    atlas_map: bool, optional
+        Whether to add a button which allows to add an anatomical atlas' colour outline. 
     toolboxdata : str, Path, optional
         The path of the "subcortexmesh_data" package data directory. The  default path 
         is assumed to be the user's home directory (pathlib's Path.home()). Users will 
@@ -420,6 +571,32 @@ def vis_merged_flat(
             clim = [np.nanmin(scalars_data), np.nanmax(scalars_data)]
     
     ###################################################################
+    ######################EXTRACT ATLAS################################
+    
+    #If atlas needed, fetched from the template data and appended as a mesh scalar
+    atlas_lut = None
+    if atlas_map:
+        if mesh.GetNumberOfPoints()==95718:
+            template='fsaverage'
+            toolboxdata = template_data_fetch(datapath=toolboxdata, template=template)
+            arraypath=f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}.npy'
+            if os.path.isfile(arraypath):
+                #set colour and atlas mask to the mesh
+                atlasarray=np.load(arraypath)
+                atlas_lut=pd.read_csv(f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}_names.txt')
+                #read RGB colour code in the LUT and make a 3d colour array
+                lut_rgb = atlas_lut.set_index('new_id')[['R', 'G', 'B']]
+                atlas_rgb = np.array(
+                    [tuple(lut_rgb.loc[int(v)]) if int(v) in lut_rgb.index else (211, 211, 211) for v in atlasarray], dtype=np.uint8)
+                #append to mesh
+                mesh.point_data['atlas_rgb'] = atlas_rgb
+                mesh.point_data['atlas_id'] = atlasarray.astype(int)   #id for hover lookup
+            else:
+                raise FileNotFoundError(f"No atlas was found in the template data directory ({toolboxdata}). To obtain the atlas, remove the directory and download the up-to-date data using template_data_fetch().")
+        elif mesh.GetNumberOfPoints()==82412:
+            warnings.warn(f"No atlas parcellation exists for the FSL FIRST merged mesh yet, so the atlas_map argument will be ignored.")
+    
+    ###################################################################
     ######################EXTRACT ROI SUB-MESHES#######################
     
     submeshes = []
@@ -466,6 +643,29 @@ def vis_merged_flat(
         sub.points -= centroid
         
         submeshes.append(sub)
+    
+    ###################################################################
+    ######################EXTRACT OUTLINES##############################
+    
+    outline_submeshes = [None] * n_roi
+    if atlas_map and atlas_lut is not None:
+        for i, sub in enumerate(submeshes):
+            if sub is None or 'atlas_id' not in sub.point_data:
+                continue
+            label_values = np.unique(sub.point_data['atlas_id'])
+            label_values = label_values[label_values > 0]
+            if len(label_values) < 2:
+                continue  # nothing to contour, only one label present in this ROI
+            boundary_values = np.arange(label_values.min() - 0.5, label_values.max() + 1.5, 1.0)
+            ol = sub.contour(isosurfaces=boundary_values, scalars='atlas_id')
+            if ol.n_points == 0:
+                continue
+            locator = vtk.vtkPointLocator()
+            locator.SetDataSet(sub)
+            locator.BuildLocator()
+            nearest_ids = np.array([locator.FindClosestPoint(pt) for pt in ol.points])
+            ol.point_data['atlas_rgb'] = sub.point_data['atlas_rgb'][nearest_ids]
+            outline_submeshes[i] = ol
     
     ###################################################################
     ####################BUILD PAIR/SINGLETON ROWS######################
@@ -551,6 +751,13 @@ def vis_merged_flat(
                 nan_color='lightgrey',
                 show_scalar_bar=False,
             )
+            #add matching outline
+            if atlas_map and sub_idx < len(outline_submeshes) and outline_submeshes[sub_idx] is not None:
+                plotter.add_mesh(
+                    outline_submeshes[sub_idx],
+                    scalars='atlas_rgb', rgb=True,
+                    line_width=2, render_lines_as_tubes=True,
+            )
             plotter.add_text(text_label, position="upper_edge", font_size=8, color="black")
             plotter.add_text(view_label, position="lower_edge", font_size=8, color="black")
         else:
@@ -598,6 +805,51 @@ def vis_merged_flat(
         fmt="%.2f",
         label_font_size=10
     )
+    
+    ###################################################################
+    ##########################ATLAS LEGEND##############################
+    
+    if atlas_map and atlas_lut is not None:
+        plotter.subplot(nrows - 1, 0)
+        plotter.add_text('Labels', position="upper_edge", font_size=8, color="black")
+        plotter.set_background("white")
+        #merge L and R as it's the same colours
+        def _base_label(label):
+            return re.sub(r'_(L|R)$', '', label)
+        #also abbreviate ROIs so they fit in the box:
+        _SHORTEN_MAP = {'Cerebellum': 'Cerebel','Hippocampus': 'Hippo','Globus_Pallidus': 'Pallidum',
+            'Brain_Stem': 'BStem','Amygdala': 'Amyg','amygdaloid': 'amyg','Suprageniculate': 'Supragen',
+            'Centromedian': 'Centmed','Peduncle': 'Pedunc','Nucleus': 'Nuc','_Area':'','Thalamus': 'Thal',
+            'Cerebellar': 'Cerebel','Superior': 'Sup','Lateral': 'Lat','Latero':'Lat','Ventral': 'Ventr',
+            'Ventral_DC': 'VDC', 'Cortico': 'Cort', 'Parafascicular': 'Parafasc'
+        }
+        def _shorten_label(label):
+            for full, short in _SHORTEN_MAP.items():
+                label = label.replace(full, short)
+            return label
+        
+        legend_lut = (
+            atlas_lut.assign(base_label=atlas_lut['new_label'].apply(_base_label).apply(_shorten_label))
+            .drop_duplicates(subset='base_label')
+        )
+        n_labels = len(legend_lut)
+        n_cols = 2
+        rows_per_col = int(np.ceil(n_labels / n_cols))
+        col_x_positions = [0.02, 0.50, 0.70]
+        row_height = 0.88 / rows_per_col
+        
+        for j, row in enumerate(legend_lut.itertuples()):
+            col = j // rows_per_col
+            row_in_col = j % rows_per_col
+            color = (row.R / 255, row.G / 255, row.B / 255)
+            x = col_x_positions[col]
+            y = 0.88 - row_in_col * row_height
+            plotter.add_text(
+                row.base_label,
+                position=(x, y),
+                viewport=True,
+                font_size=5,
+                color=color)
     
     plotter.screenshot(str(output_path))
     if not silent:

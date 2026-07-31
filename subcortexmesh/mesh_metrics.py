@@ -13,6 +13,7 @@ import re
 import copy
 import tempfile
 import time
+import warnings
 from sklearn.decomposition import PCA
 from scipy.spatial.transform import Rotation
 from typing import Optional, Union, Sequence
@@ -103,6 +104,11 @@ def mesh_metrics(
     
     #template data is needed
     toolboxdata=template_data_fetch(datapath=toolboxdata, template = template)
+    
+    #atlas check
+    arraypath = f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}.npy' #labelled atlas vertices
+    if not os.path.isfile(arraypath) and template=='fsaverage':
+        warnings.warn(f"No atlas was found in the template data directory ({toolboxdata}). To obtain the atlas, remove the directory and download the up-to-date data using template_data_fetch().")
     
     #list subjects in the surface subjects directory
     sub_list =[    d for d in os.listdir(inputdir)
@@ -537,6 +543,14 @@ def mesh_metrics(
                         subject_mesh_templatespace=native_to_template(aligned_subject_mesh, template_mesh, 'curvature')
                     
                     #########################################################################
+                    ##############################subROI stats###############################
+                    
+                    #if subsegmentations available for that ROI, also compute them too
+                    #Atlas ROIs are only in template space, this is not in native space but in template space
+                    if template=='fsaverage':
+                        print_stats_atlas(subdir, subject_mesh_templatespace, base, template, toolboxdata)
+                    
+                    #########################################################################
                     ##############################plot#######################################
                     
                     if plot_projection:
@@ -647,6 +661,77 @@ def print_stats(subdir, mesh, base):
             # Save table
             df.to_csv(outfile, sep="\t", index_label="label", float_format="%.3f")
 
+#summary statistics for atlas sub-segmentations based on anatomical atlas
+def print_stats_atlas(subdir, mesh, base, template, toolboxdata):
+    #should already exist 
+    os.makedirs(f"{subdir}/stats", exist_ok=True)
+    #get n_vert per ROI as reference
+    roi_id_path = f"{toolboxdata}/template_data/fsaverage/surfaces/allaseg_roi_id.txt"
+    roi_lookup = pd.read_csv(roi_id_path, sep='\t')  
+    #get atlas array with subsection labels 
+    arraypath = f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}.npy' #labelled atlas vertices
+    
+    if os.path.isfile(arraypath):
+        atlasarray=np.load(arraypath)
+        atlas_lookup=pd.read_csv(f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}_names.txt')
+        
+        #read atlas labels that match roi name
+        #list sub-labels included in the present roi (listed in 'roi' column)
+        subrois = atlas_lookup[(atlas_lookup['roi'] == base)]
+        #Cerebellar Vermis is a problem since it is technically one label, but overlaps two separate mesh/set of vertices. So we will stores stats separately per hemisphere in the table: Vermis_XXX_L/Vermis_XXX_R
+        if base == 'left-cerebellum-cortex':
+            subrois = atlas_lookup[(atlas_lookup['roi'] == base) | (atlas_lookup['roi'] == 'cerebellum-cortex')].copy()
+            subrois.loc[subrois['new_label'].str.contains('Vermis'),'new_label'] = subrois['new_label'] + '_L'
+        elif base == 'right-cerebellum-cortex':
+            subrois = atlas_lookup[(atlas_lookup['roi'] == base) | (atlas_lookup['roi'] == 'cerebellum-cortex')].copy()
+            subrois.loc[subrois['new_label'].str.contains('Vermis'),'new_label'] = subrois['new_label'] + '_R'
+        
+        #get n_vert for that specific roi (inside allaseg_roi_id.txt)
+        roi_row = roi_lookup.set_index('label').loc[base]
+        #identify corresponding vertices in atlas data
+        start = int(roi_row.n_vert_cumul - roi_row.n_vert)
+        end = int(roi_row.n_vert_cumul)
+        atlas_id_map = atlasarray[start:end]
+        
+        if len(atlas_id_map) != mesh.GetNumberOfPoints():
+            raise ValueError(f"Documented ROI length ({len(atlas_id_map)}) doesn't match mesh vertex count ({mesh.GetNumberOfPoints()})")
+        
+        for scalarname in ['thickness', 'surfarea', 'curvature']:
+            if mesh.GetPointData().HasArray(scalarname):
+                #stat sheet with predefined row and column names  for this measure
+                #drop unified vermis and replace it with hemisphere-wise vermis:
+                labels = np.array(atlas_lookup.loc[~atlas_lookup['new_label'].str.contains('Vermis'), 'new_label'])
+                vermisl=np.array(atlas_lookup.loc[atlas_lookup['new_label'].str.contains('Vermis'),'new_label'] + '_L')
+                vermisr=np.array(atlas_lookup.loc[atlas_lookup['new_label'].str.contains('Vermis'),'new_label'] + '_R')
+                labels=np.append(labels, np.append(vermisl, vermisr))
+                
+                columns = ["mean", "sd", "min", "max", "range", "n_vert"]
+                #load or initialize table
+                outfile = f"{subdir}/stats/{scalarname}_stats_atlas.txt"
+                if os.path.exists(outfile):
+                    df = pd.read_csv(outfile, sep="\t", index_col="label")
+                else:
+                    df = pd.DataFrame(index=labels, columns=columns) 
+                
+                #get vertex-wise metrics values to an array
+                metricscalar = mesh.GetPointData().GetArray(scalarname)
+                scalararr = np.array([metricscalar.GetValue(i) for i in range(metricscalar.GetNumberOfTuples())])
+                #loop through sub-labels
+                for _, row in subrois.iterrows():
+                    #get vertex coordinates that match this sublabel
+                    sub_label = row['new_label']
+                    vert_mask = atlas_id_map == int(row['new_id'])
+                    #safeguard:
+                    if int(vert_mask.sum()) == 0:
+                        warnings.warn(f"{sub_label} absent from mesh. No stats computed.")
+                        continue  #no vertex matches it, known case: Vermis_
+                    #get mean values for vertex-wise values within that sublabel
+                    sub_data = scalararr[vert_mask]
+                    df.loc[sub_label] = [
+                        np.mean(sub_data), np.std(sub_data), np.min(sub_data),
+                        np.max(sub_data), np.max(sub_data) - np.min(sub_data), int(vert_mask.sum())]
+                
+                df.to_csv(outfile, sep="\t", index_label="label", float_format="%.3f")
 
 ###################################################################
 ###################################################################

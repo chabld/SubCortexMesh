@@ -5,3 +5,12 @@
     bottom: auto !important;
     z-index: 9999 !important;
 }
+
+.scrollable-table {
+    display: block;
+    max-height: 400px;
+    overflow-y: auto;
+}
+.scrollable-table table {
+    width: 100%;
+}

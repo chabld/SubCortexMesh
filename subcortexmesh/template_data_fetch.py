@@ -36,7 +36,7 @@ def template_data_fetch(
         toolboxdatadir=datapath
     
     if template=='fsaverage':
-        template_data_size='11.7 MB'
+        template_data_size='12.4 MB'
     elif template=='fslfirst':
         template_data_size='8.8 MB'
     else:

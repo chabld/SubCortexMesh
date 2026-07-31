@@ -6,6 +6,7 @@
    :caption: About
 
    changelog
+   atlases
 
 .. toctree::
    :maxdepth: 1

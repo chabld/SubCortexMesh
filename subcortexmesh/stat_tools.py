@@ -197,6 +197,8 @@ def slm_plot(
     smooth_mesh: Optional[int] = 0, 
     mode: str = 'anatomical',
     flatmode_filepath: Union[str, Path] = 'flat_plot.png',
+    atlas_map: Optional[bool] = False,
+    toolboxdata: Optional[Union[str, Path]] = None
     ):
     """
     Plot SLM result maps on their respective surface.
@@ -226,9 +228,15 @@ def slm_plot(
     smooth_mesh: int, optional
         Number of iterations of cosmetic smoothing to make the surface appear smoother. Default is 0.
     mode: str, optional
-        Rendering mode for all regions merged (see merge_all() for the example output): 'flat' (2D PNG grid via vis_merged_flat), or 'anatomical' (interactive spread viewer via vis_merged). Argument ignored if individual ROIs are provided.
+        Rendering mode for all regions merged (see merge_all() for the example output): 'flat' (2D PNG grid via vis_merged_flat, requires the toolboxdata argument), or 'anatomical' (interactive spread viewer via vis_merged). Argument ignored if individual ROIs are provided.
     flatmode_filepath: str, Path, optional
-        Output path for the PNG when all ROIs merged are provided and mode='flat'. Default is 'flat_plot.png'.
+        Output path for the PNG image when all ROIs merged are provided and mode='flat'. Default is 'flat_plot.png'.
+    atlas_map: bool, optional
+        When True, adds toggle buttons to show anatomical atlas' colour labels and/or outlines on top of the mesh values for 3D viewers. For 'flat' mode (if slm_plot() is given a merge_all() output), outlines are overlaid and a legend printed in the PNG image. Requires the toolboxdata argument.
+    toolboxdata : str, Path, optional
+        The path of the "subcortexmesh_data" package data directory. The  default path 
+        is assumed to be the user's home directory (pathlib's Path.home()). It is only needed
+        if users want to plot the atlas labels. Users will be prompted to download it if not found.
     """
     
     #load mesh
@@ -472,30 +480,182 @@ def slm_plot(
             show_scalar_bar=True,
             smooth_shading=True,
         )
-        plotter.add_text(title, font_size=12)
+        plotter.add_text(title, font_size=12, position='upper_right')
+        
+        if atlas_map:
+            labels = [slm.roilabel] if isinstance(slm.roilabel, str) else list(slm.roilabel)
+            
+            toolboxdata_path = template_data_fetch(datapath=toolboxdata, template='fsaverage')
+            roi_id_path = f"{toolboxdata_path}/template_data/fsaverage/surfaces/allaseg_roi_id.txt"
+            roi_lookup = pd.read_csv(roi_id_path, sep='\t')
+            
+            #FSL FIRST ROIs do not have an atlas, so check if the n_vert match
+            missing_labels = [l for l in labels if l not in set(roi_lookup['label'])]
+            roi_lookup_selected = None
+            if not missing_labels:
+                roi_lookup_selected = roi_lookup.set_index('label').loc[labels]  
+                expected_n_vert = int(roi_lookup_selected['n_vert'].sum())
+            
+            if missing_labels or roi_lookup_selected is None or expected_n_vert != mesh.n_points:
+                warnings.warn("The FSL FIRST template currently does not have an attached atlas.")
+                atlas_map = False
+        
+        if atlas_map:
+            arraypath = f'{toolboxdata_path}/template_data/fsaverage/atlas/anatomical_atlas_fsaverage.npy'
+            if not os.path.isfile(arraypath):
+                raise FileNotFoundError(
+                    f"No atlas was found in the template data directory ({toolboxdata_path}). "
+                    "To obtain the atlas, remove the directory and download the up-to-date data using template_data_fetch()."
+                )
+            atlasarray = np.load(arraypath)
+            atlas_lut = pd.read_csv(f'{toolboxdata_path}/template_data/fsaverage/atlas/anatomical_atlas_fsaverage_names.txt')
+            #get the right atlas indices based on the vertex counts in roi_lookup
+            roi_lookup_selected = roi_lookup.set_index('label').loc[labels]  # preserves slm.roilabel order
+            atlas_id_map = np.concatenate([
+                atlasarray[int(row.n_vert_cumul - row.n_vert): int(row.n_vert_cumul)]
+                for _, row in roi_lookup_selected.iterrows()
+            ])
+            
+            lut_rgb = atlas_lut.set_index('new_id')[['R', 'G', 'B']]
+            atlas_rgb = np.array(
+                [tuple(lut_rgb.loc[int(v)]) if int(v) in lut_rgb.index else (211, 211, 211) for v in atlas_id_map],
+                dtype=np.uint8
+            )
+            atlas_mesh = mesh.copy()          
+            atlas_mesh.point_data['atlas_rgb'] = atlas_rgb
+            atlas_mesh.point_data['atlas_id'] = atlas_id_map.astype(int)
+            atlas_actor = plotter.add_mesh(atlas_mesh, scalars='atlas_rgb', rgb=True)
+            atlas_actor.visibility = False
+            
+            #outline
+            outline_actor = None
+            label_values = np.unique(atlas_id_map)
+            if len(label_values) > 1:
+                boundary_values = np.arange(label_values.min() - 0.5, label_values.max() + 1.5, 1.0)
+                ol = atlas_mesh.contour(isosurfaces=boundary_values, scalars='atlas_id')
+                if ol.n_points > 0:
+                    locator = vtk.vtkPointLocator()
+                    locator.SetDataSet(atlas_mesh)
+                    locator.BuildLocator()
+                    nearest_ids = np.array([locator.FindClosestPoint(pt) for pt in ol.points])
+                    ol.point_data['atlas_rgb'] = atlas_mesh.point_data['atlas_rgb'][nearest_ids]
+                    ol.point_data['atlas_id'] = atlas_mesh.point_data['atlas_id'][nearest_ids]
+                    outline_actor = plotter.add_mesh(ol, scalars='atlas_rgb', rgb=True, line_width=2, render_lines_as_tubes=True)
+                    outline_actor.visibility = False
+            
+            def toggle_atlas(flag):
+                atlas_actor.visibility = flag
+                plotter.render()
+            
+            plotter.add_checkbox_button_widget(
+                toggle_atlas,
+                value=False,
+                position=(10, plotter.window_size[1] - 150),
+                size=50,
+                border_size=3,
+                color_on='mediumseagreen',
+                color_off='grey',
+            )
+            
+            if outline_actor is not None:
+                def toggle_outline(flag):
+                    outline_actor.visibility = flag
+                    plotter.render()
+                
+                plotter.add_checkbox_button_widget(
+                    toggle_outline,
+                    value=False,
+                    position=(70, plotter.window_size[1] - 150),
+                    size=50,
+                    border_size=3,
+                    color_on='dodgerblue',
+                    color_off='grey',
+                )
+            
+            #hover
+            hover_picker = vtk.vtkCellPicker()
+            hover_picker.SetTolerance(0.0005)
+            label_lookup = atlas_lut.set_index('new_id')['new_label'].to_dict()
+            plotter.add_text("", position=(10, 10), font_size=10, color='black', name='hover_label')
+            
+            def on_mouse_move(caller, event):
+                x, y = plotter.iren.interactor.GetEventPosition()
+                hover_picker.Pick(x, y, 0, plotter.renderer)
+                actor = hover_picker.GetActor()
+                point_id = hover_picker.GetPointId()
+                label_text = ""
+                if point_id is not None and point_id >= 0:
+                        src = ol if (outline_actor is not None and actor is outline_actor) else atlas_mesh
+                        if point_id < src.n_points:
+                            atlas_id = int(src.point_data['atlas_id'][point_id])
+                            label_text = label_lookup.get(atlas_id, "")
+                
+                plotter.add_text(label_text, position=(10, 10), font_size=10, color='black', name='hover_label')
+                plotter.render()
+            
+            plotter.iren.add_observer("MouseMoveEvent", on_mouse_move) 
+        
         plotter.show()
+    
     elif mesh.GetNumberOfPoints() in [95718,82412]: 
         #the 3D interactive plotter generated by vis_merged
         if mode == 'anatomical':
             from subcortexmesh.merge_tools import vis_merged
             mesh.point_data[title] = scalars
             mesh.set_active_scalars(title)
-            vis_merged(
-                merged_vtk=mesh,
-                cmap=cmap,
-                clim=clim,
-                smooth_mesh=smooth_mesh)
+            if atlas_map and mesh.GetNumberOfPoints()==82412:
+                warnings.warn("The FSL FIRST template currently does not have an attached atlas.")
+                vis_merged(
+                    merged_vtk=mesh,
+                    cmap=cmap,
+                    clim=clim,
+                    smooth_mesh=smooth_mesh)      
+            elif atlas_map and mesh.GetNumberOfPoints()==95718:
+                vis_merged(
+                    merged_vtk=mesh,
+                    cmap=cmap,
+                    clim=clim,
+                    smooth_mesh=smooth_mesh,
+                    atlas_map=True,
+                    toolboxdata=toolboxdata)
+            else:
+                vis_merged(
+                    merged_vtk=mesh,
+                    cmap=cmap,
+                    clim=clim,
+                    smooth_mesh=smooth_mesh)                
         #the flat plot output generated by vis_merged_flat 
         elif mode == 'flat':
             from subcortexmesh.merge_tools import vis_merged_flat
-            vis_merged_flat(
-                merged_vtk=mesh,
-                output_path=flatmode_filepath,
-                scalars=title,
-                cmap=cmap,
-                clim=clim,
-                smooth_mesh=smooth_mesh,
-            )
+            if atlas_map and mesh.GetNumberOfPoints()==82412:
+                warnings.warn("The FSL FIRST template currently does not have an attached atlas.")
+                vis_merged_flat(
+                    merged_vtk=mesh,
+                    output_path=flatmode_filepath,
+                    scalars=title,
+                    cmap=cmap,
+                    clim=clim,
+                    smooth_mesh=smooth_mesh,
+                    toolboxdata=toolboxdata)
+            elif atlas_map and mesh.GetNumberOfPoints()==95718:
+                vis_merged_flat(
+                    merged_vtk=mesh,
+                    output_path=flatmode_filepath,
+                    scalars=title,
+                    cmap=cmap,
+                    clim=clim,
+                    smooth_mesh=smooth_mesh,
+                    atlas_map=True,
+                    toolboxdata=toolboxdata)
+            else:
+                vis_merged_flat(
+                    merged_vtk=mesh,
+                    output_path=flatmode_filepath,
+                    scalars=title,
+                    cmap=cmap,
+                    clim=clim,
+                    smooth_mesh=smooth_mesh,
+                    toolboxdata=toolboxdata)
         else:
             raise ValueError('The "mode" argument can only be "anatomical" (default) or "flat".')
             
@@ -553,11 +713,25 @@ def cluster_summary(
     
     roi_lookup = pd.read_csv(roi_id_path, sep='\t')
     
+    #atlas
+    atlas_lookup=None
+    if template=='fsaverage':
+        arraypath=f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}.npy'
+        if os.path.isfile(arraypath):
+                #set colour and atlas mask to the mesh
+                atlasarray=np.load(arraypath)
+                atlas_lookup=pd.read_csv(f'{toolboxdata}/template_data/{template}/atlas/anatomical_atlas_{template}_names.txt')
+        else:
+            warnings.warn(f"No atlas was found in the template data directory ({toolboxdata}). To obtain the atlas, remove the directory and download the up-to-date data using template_data_fetch().")
+    
     #get vertex IDs straight from the merged template if the merged mesh given ('allaseg', 'allfslfirst')
     #other wise, build roi_id from scratch
     if (isinstance(slm_model.roilabel, str) and (slm_model.roilabel=='allaseg' or slm_model.roilabel=='allfslfirst')) or (len(slm_model.roilabel)==1 and slm_model.roilabel[0] in ('allaseg', 'allfslfirst')):
         roi_id_map = np.array(slm_model.surf.GetPointData().GetArray('roi_id')).flatten()
         roi_names = dict(zip(roi_lookup['id'].astype(int), roi_lookup['label']))
+        if template=='fsaverage':
+            atlas_id_map = atlasarray
+            atlas_labels = dict(zip(atlas_lookup['new_id'].astype(int), atlas_lookup['new_label']))
     else:
         #based on the order of the labels entered in the model, the ROI template IDs and the vertex count
         labels = [slm_model.roilabel] if isinstance(slm_model.roilabel, str) else list(slm_model.roilabel)
@@ -565,9 +739,16 @@ def cluster_summary(
         roi_id_map=np.concatenate([np.full(int(row.n_vert), int(row.id))
                                     for _, row in roi_lookup_selected.iterrows()])
         roi_names = dict(zip(roi_lookup_selected['id'].astype(int), roi_lookup_selected.index))
+        #same for subsegmentations (using n_vert from the roi lookup)
+        if template=='fsaverage':
+            atlas_id_map = np.concatenate([
+                atlasarray[int(row.n_vert_cumul - row.n_vert): int(row.n_vert_cumul)]
+                for _, row in roi_lookup_selected.iterrows()])
+            atlas_labels = dict(zip(atlas_lookup['new_id'].astype(int), atlas_lookup['new_label']))
     
     results = {}
     
+    #plot negative and positive cluster results separately
     for contrast_idx, contrast_label, peak_fn in [
         (0, "Positive contrast", np.argmax),
         (1, "Negative contrast", np.argmin),
@@ -606,8 +787,13 @@ def cluster_summary(
                 sig.at[i, 'Y'] = round(float(coord[1, peak_vtx]), 1)
                 sig.at[i, 'Z'] = round(float(coord[2, peak_vtx]), 1)
             
+            #main ROI
             roi_id_at_peak = int(roi_id_map[peak_vtx])
             sig.at[i, 'region'] = roi_names.get(roi_id_at_peak, f"unknown (id={roi_id_at_peak})")
+            #Atlas
+            if template=='fsaverage':
+                atlas_id_at_peak = int(atlas_id_map[peak_vtx])
+                sig.at[i, 'atlas'] = atlas_labels.get(atlas_id_at_peak, f"unknown (id={atlas_id_at_peak})")
         
         results[contrast_label] = sig
     
