@@ -10,17 +10,18 @@ An anatomical atlas has been created in surface space for SubCortexMesh (SCM)'s 
 
 ## Summary
 
-- [Development details](#dvlptdetails)
-    - [Volumetric atlas extraction](#volextract)
-    - [Volume to surface projection](#vol2surf)
-- [How to use them in SubCortexMesh](#howtouse)
+- [Development details](#development-details)
+    - [Volumetric atlas extraction](#volumetric-atlas-extraction)
+    - [Volume to surface projection](#volume-to-surface-projection)
+- [How to use them in SubCortexMesh](#how-to-use-them-in-subcortexmesh)
+- [Lookup tables](#lookup-tables)
 - [References](#references)
 
 ------------------------------------------------------------------------
 
-## Development details {#dvlptdetails}
+## Development details
 
-### Volumetric atlas extraction {#volextract}
+### Volumetric atlas extraction
 
 Depending on the subcortical region, labels from various volumetric atlases were selected. Because of high granularity lost or scrambled upon conversion to surface, some ROIs were merged, and other excluded, especially when buried inside regions or too subtle to be correctly captured on the surface "shell". We also took advantage of FreeSurfer _freeview_'s "3D isosurface" view to guide assessment of the converted surfaces.
 
@@ -47,7 +48,7 @@ Excluded ROIs included: Anterior-amygdaloid-area, as outside the ASeg volume; Me
 Note about MNI space: SCM's surface template are based on ASeg which is strictly speaking in MNI305 space. CIT168 and Diedrichsen 2009 were resamped to MNI305 (ASeg's space) using the Neuroatlas R package's [MNI152_to_MNI305](https://bbuchsbaum.github.io/neuroatlas/reference/MNI305_to_MNI152.html) transformation matrices (Buchsbaum, 2006; see R/coordinate_spaces.R). FreeSurfer's subcortical segmentations were simply resampled with the same software's "mri_vol2vol --regheader" which gave satisfying results.
 </div>
 
-### Volume to surface projection {#vol2surf}
+### Volume to surface projection
 
 Volume labels were projected to their corresponding template surface object, for each ROI one by one, using the Visualization Toolkit (VTK v9.5.2; Schroeder, Martin & Lorensen, 2006) in Python. The volume regions were aligned with their respective SCM surface template as consistently and closely as possible, with automated centroid alignment, manual fine-tuning of the coordinates, and manual tweaking of their scale. 
 Once satisfying spatial correspondance was achieved, we projected their atlas voxel-wise label values to the nearest vertices in the surface, using SciPy (v1.15.2; Virtanen et al. 2020)'s Euclidean Distance Transform. Further smoothing was applied to minimise presence of sparse triangles.
@@ -58,7 +59,7 @@ The following screenshot shows an example of a surface-based right hippocampus n
 
 ------------------------------------------------------------------------
 
-## How to use them in SubCortexMesh {#howtouse}
+## How to use them in SubCortexMesh
 
 As of version 1.1.0, the data fetched via template_data_fetch() also downloads the "atlas" subdirectory for the fsaverage template, which includes an array with values corresponding to each vertex in template space ("anatomical_atlas_fsaverage.npy") - following the order of the allaseg_roi_id.txt reference - and a lookup table with the labels matching each value ("anatomical_atlas_fsaverage_names"). 
 
@@ -96,9 +97,9 @@ cluster_summary(slm_model, template='fsaverage')
  1       2  1846.0  <0.001  125.3  132.8  142.0  -3.53  right-thalamus  Thalamus_Mediodorsal-Medial_R}
  ```
 
-## Lookup table
+## Lookup tables
 
-The table below lays out every region included in the anatomical atlas along with their corresponding IDs:
+The table below lays out every region included in the anatomical atlas along with their corresponding IDs and labels:
 
 ````{csv-table} Subcortical Atlas Labels
 :file: _static/anatomical_atlas_fsaverage_names.txt
