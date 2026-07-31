@@ -107,7 +107,7 @@ The table below lays out every region included in the anatomical atlas along wit
 :class: scrollable-table
 ````
 
-# References
+## References
 
 <div class="small-text">
 
