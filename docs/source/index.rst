@@ -5,7 +5,7 @@
    :maxdepth: 1
    :caption: About
 
-   genindex
+   self
    changelog
    atlases
 
