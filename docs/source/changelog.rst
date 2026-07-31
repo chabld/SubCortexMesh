@@ -1,7 +1,7 @@
 Updates
 =========
 
-v1.1.0 - (TBC)
+v1.1.0
 --------------
 
 NEW FEATURES
