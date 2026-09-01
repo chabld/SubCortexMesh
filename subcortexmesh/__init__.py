@@ -4,6 +4,7 @@ from subcortexmesh.template_data_fetch import (template_data_fetch)
 from subcortexmesh.subseg_getvol import (subseg_getvol)
 from subcortexmesh.vol2surf import (vol2surf)
 from subcortexmesh.mesh_metrics import (mesh_metrics)
+from subcortexmesh.cifti_metrics import (cifti_metrics)
 from subcortexmesh.merge_tools import (merge_all)
 from subcortexmesh.merge_tools import (vis_merged)
 from subcortexmesh.merge_tools import (vis_merged_flat)
@@ -18,6 +19,7 @@ __all__ = [
     "subseg_getvol",
     "vol2surf",
     "mesh_metrics",
+    "cifti_metrics",
     "merge_all",
     "vis_merged",
     "vis_merged_flat",

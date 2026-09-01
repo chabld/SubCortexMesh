@@ -46,8 +46,7 @@ def mesh_metrics(
     - Surface area is measured as the sum of the area of all triangles a given  vertex belongs to, divided by 3. By default, a Gaussian (FWHM=5) smoothing is applied. 
     - Curvature is the mean curvature from vtkCurvatures, which indicates how bent is the surface at a each vertex, with higher mean curvature meaning more concave surface and lower convex. By default, a Gaussian (FWHM=5) smoothing is applied. 
     - Optional (native_meshes, disabled by default): meshes with their thickness and surface area scalar values can be saved in native subject space, before projection.
-    - Metric values, separately, are "projected" on an empty template 
-    mesh via a nearest neighbour approach (i.e., each vertex in the template mesh is assigned the metric value of the closest vertex in the subject mesh)
+    - Metric values, separately, are "projected" on an empty template mesh via a nearest neighbour approach (i.e., each vertex in the template mesh is assigned the metric value of the closest vertex in the subject mesh)
     - Meshes with their thickness and surface area scalar values can be saved in template space.
     
     Two optional arguments can be provided to visualise the medial curve (plot_medial_curve), 
@@ -372,7 +371,7 @@ def mesh_metrics(
                     if not silent: 
                         print("   Printing descriptive statistics...")
                     #print native-space statistics summary either way
-                    print_stats(subdir, subject_mesh, base)
+                    print_stats(subdir, subject_mesh, base, metric)
                     
                     ###################################################################################
                     #######################subject-to-template registration############################
@@ -548,7 +547,7 @@ def mesh_metrics(
                     #if subsegmentations available for that ROI, also compute them too
                     #Atlas ROIs are only in template space, this is not in native space but in template space
                     if template=='fsaverage':
-                        print_stats_atlas(subdir, subject_mesh_templatespace, base, template, toolboxdata)
+                        print_stats_atlas(subdir, subject_mesh_templatespace, base, metric, template, toolboxdata)
                     
                     #########################################################################
                     ##############################plot#######################################
@@ -632,10 +631,12 @@ def rotator(mesh, template):
 ###################################################################
 #function to write down summary statistics in a .txt
 
-def print_stats(subdir, mesh, base):
+def print_stats(subdir, mesh, base, metric):
     os.makedirs(f"{subdir}/stats", exist_ok=True)
+    #if metric is a single string, turn to list so it can still be looped
+    metric = metric if isinstance(metric, (list, tuple)) else [metric]
     #one table for each metric separately
-    for scalarname in ['thickness', 'surfarea', 'curvature']:
+    for scalarname in metric:
         if mesh.GetPointData().HasArray(scalarname):
             #predefined row and column names 
             labels = ["left-accumbens-area", "right-accumbens-area", "left-amygdala", "right-amygdala",
@@ -662,7 +663,7 @@ def print_stats(subdir, mesh, base):
             df.to_csv(outfile, sep="\t", index_label="label", float_format="%.3f")
 
 #summary statistics for atlas sub-segmentations based on anatomical atlas
-def print_stats_atlas(subdir, mesh, base, template, toolboxdata):
+def print_stats_atlas(subdir, mesh, base, metric, template, toolboxdata):
     #should already exist 
     os.makedirs(f"{subdir}/stats", exist_ok=True)
     #get n_vert per ROI as reference
@@ -696,7 +697,10 @@ def print_stats_atlas(subdir, mesh, base, template, toolboxdata):
         if len(atlas_id_map) != mesh.GetNumberOfPoints():
             raise ValueError(f"Documented ROI length ({len(atlas_id_map)}) doesn't match mesh vertex count ({mesh.GetNumberOfPoints()})")
         
-        for scalarname in ['thickness', 'surfarea', 'curvature']:
+        #if metric is a single string, turn to list so it can still be looped
+        metric = metric if isinstance(metric, (list, tuple)) else [metric]
+        #one table for each metric separately
+        for scalarname in metric:
             if mesh.GetPointData().HasArray(scalarname):
                 #stat sheet with predefined row and column names  for this measure
                 #drop unified vermis and replace it with hemisphere-wise vermis:

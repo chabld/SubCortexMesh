@@ -49,8 +49,8 @@ def merge_all(
         is assumed to be the user's home directory (pathlib's Path.home()). Users will 
         be prompted to download it if not found.
     metric: str, Sequence
-        The name(s) of the metric(s) to be computed as strings. Options are "thickness", 
-        "curvature", "surfarea", and default is all of them.
+        The name(s) of the metric(s) to be computed as strings. Options include "thickness", 
+        "curvature", "surfarea", and default is all of them. Alternatively, the name(s) of metric(s) specified for cifti_extract() outputs.
     plot_merged: bool
         Whether to plot the resulting merged mesh. Default is False.
     overwrite : bool
@@ -79,10 +79,10 @@ def merge_all(
         return reader.GetOutput()
     
     #merge all meshes together, storing the ROI labels as an in-vtk array
-    def mesh_merger():
+    def mesh_merger(surfpath):
         appendFilter = vtk.vtkAppendPolyData()
         for i, (filename, vtk_obj) in enumerate(mesh_list):
-            meshfile = load_mesh(f"{inputdir}/{subid}/{filename}") if filename else vtk_obj
+            meshfile = load_mesh(f"{surfpath}/{filename}") if filename else vtk_obj
             
             # Add string array with ROI name
             tagArray = vtk.vtkIntArray()
@@ -100,6 +100,9 @@ def merge_all(
         
         return merged_mesh
     
+    #if metric is a single string, turn to list so it can still be looped
+    metric = metric if isinstance(metric, (list, tuple)) else [metric]
+    
     ###################################################################
     ###################################################################
     
@@ -107,6 +110,10 @@ def merge_all(
     #list subjects in the surface subjects directory
     sub_list =[    d for d in os.listdir(inputdir)
         if os.path.isdir(os.path.join(inputdir, d))]
+    
+    #error if sub_list empty
+    if sub_list==[]:
+        raise FileNotFoundError(f"No subject folders identified. Ensure inputdir is the directory that contains sub-ID subfolders.")
     
     subindex=0
     for subid in sub_list:
@@ -127,88 +134,101 @@ def merge_all(
         if not silent: 
             print(f"Creating all-aseg surfaces for {subid}... [{subindex}/{len(sub_list)}]")
         
-        for measure in ['thickness', 'surfarea', 'curvature']:
+        #if CIFTI output, may contain multiple ses- and runs- subdirs, merge per subdir instead:
+        ses_list =[d for d in os.listdir(os.path.join(inputdir,subid)) if f"ses-" in d
+        or "run-" in d or "acq-" in d or "task-" in d]
+        if ses_list == []:
+            ses_list=[f"{inputdir}/{subid}"] #if no subdir, just the subject dir directly
+        
+        for sesdir in ses_list:
             
-            if measure not in metric:
-                continue
+            if ses_list!=[f"{inputdir}/{subid}"]:
+                if not silent:
+                    print(f" => Merging {sesdir} ... ")
+                
+                surfpath=os.path.join(inputdir,subid,sesdir)
+            else:
+                surfpath=sesdir
             
-            if not os.path.exists(f"{inputdir}/{subid}/{mergedmesh}_{measure}.vtk") or overwrite:
+            for measure in metric:
                 
-                #listing files for that metric
-                mesh_list = [
-                    f for f in os.listdir(f"{inputdir}/{subid}")
-                    if f"{measure}" in f and not f.startswith("all") #explicitly do not list the merged vtk
-                ]
-                
-                if len(mesh_list) > 0:
+                if not os.path.exists(f"{surfpath}/{mergedmesh}_{measure}.vtk") or overwrite:
                     
-                    if not silent:
-                        print(f"=> Merging {measure} ...")
-
-                    #force the mesh_list follow templates' ROI order as in the lookup table
-                    roi_lookup = pd.read_csv(f"{toolboxdata}/template_data/{template}/surfaces/{mergedmesh}_roi_id.txt",sep="\t")
-                    roi_order = roi_lookup['label'].tolist()
-
-                    #detect missing structures
-                    present_rois = set()
-                    for f in mesh_list:
+                    #listing files for that metric
+                    mesh_list = [
+                        f for f in os.listdir(surfpath)
+                        if f"{measure}" in f and not f.startswith("all") #explicitly do not list the merged vtk
+                    ]
+                    
+                    if len(mesh_list) > 0:
+                        
+                        if not silent:
+                            print(f" => Merging {measure} ...")
+                        
+                        #force the mesh_list follow templates' ROI order as in the lookup table
+                        roi_lookup = pd.read_csv(f"{toolboxdata}/template_data/{template}/surfaces/{mergedmesh}_roi_id.txt",sep="\t")
+                        roi_order = roi_lookup['label'].tolist()
+                        
+                        #detect missing structures
+                        present_rois = set()
+                        for f in mesh_list:
+                            for roi in roi_order:
+                                if f.startswith(roi) and f.endswith(".vtk"):
+                                    present_rois.add(roi)
+                                    break
+                        missing_rois = [roi for roi in roi_order if roi not in present_rois]
+                        
+                        if missing_rois and not silent:
+                            print(f" => Warning: missing structures for {subid}: {', '.join(missing_rois)}. Template meshes with NaN scalars will be used.")
+                        
+                        #get scalar names from first available subject mesh
+                        first_file = next((f for f in mesh_list if f.endswith(".vtk")), None)
+                        scalar_names = []
+                        if first_file is not None:
+                            ref_mesh = load_mesh(f"{surfpath}/{first_file}")
+                            pd_ref = ref_mesh.GetPointData()
+                            scalar_names = [pd_ref.GetArrayName(j) for j in range(pd_ref.GetNumberOfArrays())]
+                        
+                        #reorder mesh_list as tuples (filename, vtk_obj); inject template NaN meshes for missing ROIs
+                        mesh_list_sorted = []
                         for roi in roi_order:
-                            if f.startswith(roi) and f.endswith(".vtk"):
-                                present_rois.add(roi)
-                                break
-                    missing_rois = [roi for roi in roi_order if roi not in present_rois]
-
-                    if missing_rois and not silent:
-                        print(f"=> Warning: missing structures for {subid}: {', '.join(missing_rois)}. Template meshes with NaN scalars will be used.")
-
-                    #get scalar names from first available subject mesh
-                    first_file = next((f for f in mesh_list if f.endswith(".vtk")), None)
-                    scalar_names = []
-                    if first_file is not None:
-                        ref_mesh = load_mesh(f"{inputdir}/{subid}/{first_file}")
-                        pd_ref = ref_mesh.GetPointData()
-                        scalar_names = [pd_ref.GetArrayName(j) for j in range(pd_ref.GetNumberOfArrays())]
-
-                    #reorder mesh_list as tuples (filename, vtk_obj); inject template NaN meshes for missing ROIs
-                    mesh_list_sorted = []
-                    for roi in roi_order:
-                        matches = [f for f in mesh_list if f.startswith(roi) and f.endswith(".vtk")]
-                        if matches:
-                            mesh_list_sorted.append((matches[0], None))
-                        else:
-                            tmpl_mesh = load_mesh(f"{toolboxdata}/template_data/{template}/surfaces/{roi}.vtk")
-                            n_pts = tmpl_mesh.GetNumberOfPoints()
-                            for sname in scalar_names:
-                                nan_array = vtk.vtkFloatArray()
-                                nan_array.SetName(sname)
-                                nan_array.SetNumberOfTuples(n_pts)
-                                nan_array.Fill(float('nan'))
-                                tmpl_mesh.GetPointData().AddArray(nan_array)
-                            if scalar_names:
-                                tmpl_mesh.GetPointData().SetActiveScalars(scalar_names[0])
-                            mesh_list_sorted.append((None, tmpl_mesh))
-                    mesh_list = mesh_list_sorted
-
-                    #merge mesh
-                    merged_mesh=mesh_merger()
-
-                    #save it
-                    #guarantee overwriting
-                    out_path=f"{inputdir}/{subid}/{mergedmesh}_{measure}.vtk"
-                    if os.path.exists(out_path):
-                        os.remove(out_path)
-
-                    writer = vtk.vtkPolyDataWriter()
-                    writer.SetFileTypeToBinary()
-                    writer.SetFileName(out_path)
-                    writer.SetInputData(merged_mesh)
-                    _ = writer.Write()
+                            matches = [f for f in mesh_list if f.startswith(roi) and f.endswith(".vtk")]
+                            if matches:
+                                mesh_list_sorted.append((matches[0], None))
+                            else:
+                                tmpl_mesh = load_mesh(f"{toolboxdata}/template_data/{template}/surfaces/{roi}.vtk")
+                                n_pts = tmpl_mesh.GetNumberOfPoints()
+                                for sname in scalar_names:
+                                    nan_array = vtk.vtkFloatArray()
+                                    nan_array.SetName(sname)
+                                    nan_array.SetNumberOfTuples(n_pts)
+                                    nan_array.Fill(float('nan'))
+                                    tmpl_mesh.GetPointData().AddArray(nan_array)
+                                if scalar_names:
+                                    tmpl_mesh.GetPointData().SetActiveScalars(scalar_names[0])
+                                mesh_list_sorted.append((None, tmpl_mesh))
+                        mesh_list = mesh_list_sorted
+                        
+                        #merge mesh
+                        merged_mesh=mesh_merger(surfpath)
+                        
+                        #save it
+                        #guarantee overwriting
+                        out_path=f"{surfpath}/{mergedmesh}_{measure}.vtk"
+                        if os.path.exists(out_path):
+                            os.remove(out_path)
+                                            
+                        writer = vtk.vtkPolyDataWriter()
+                        writer.SetFileTypeToBinary()
+                        writer.SetFileName(out_path)
+                        writer.SetInputData(merged_mesh)
+                        _ = writer.Write()
+                    else:
+                        if not silent: 
+                            print(f"No mesh file (.vtk) found at all for {subid}'s surface {measure}.")
                 else:
                     if not silent: 
-                        print(f"No mesh file (.vtk) found at all for {subid}'s surface {measure}.")
-            else:
-                if not silent: 
-                    print(f"=> {measure} already merged")
+                        print(f"=> {measure} already merged")
         
         os.remove(fname)  #cleanup tmp file
                     

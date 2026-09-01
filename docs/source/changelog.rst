@@ -1,6 +1,14 @@
 Updates
 =========
 
+v1.2.0
+--------------
+- A new function, cifti_metrics(), is now available to convert CIFTI 91k subcortical data to surfaces.The function extracts the ~30k voxel-based subcortical grayordinates and projects their values to a the fsaverage surface template space. It is compatible with 91k outputs such as that of the Human Connectome Project preprocessing pipeline or pipelines that output cifti such as ASLprep, fMRIprep, XCP-D. It works similarly to mesh_metrics() and creates a surface_metrics_cifti/ output directory, containing surfaces with their CIFTI values (in separate subdirectories per session-,task-,run- and acq- when applicable). It also produces summary statistics in template space. These output surfaces can be analysed and plotted the same way the outputs of mesh_metrics() are.
+
+FIXES
+~~~~~
+- Error messaging when no subject directory is found by merge_tools(), instead of silence.
+
 v1.1.0
 --------------
 
