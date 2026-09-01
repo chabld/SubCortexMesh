@@ -17,6 +17,7 @@
    vol2surf
    surf_qcplot
    mesh_metrics
+   cifti_metrics
    merge_tools
    stat_tools
    template_data_fetch
