@@ -15,7 +15,7 @@
 
    subseg_getvol
    vol2surf
-   surf_qcplot
+   qc_tools
    mesh_metrics
    cifti_metrics
    merge_tools
