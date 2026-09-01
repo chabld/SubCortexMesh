@@ -1,7 +1,7 @@
-surf_qcplot
+qc_tools
 ========================
 
-.. automodule:: subcortexmesh.surf_qcplot
+.. automodule:: subcortexmesh.qc_tools
    :members:
    :undoc-members:
    :show-inheritance:
