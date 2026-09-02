@@ -58,6 +58,8 @@ def slm_analysis(
         The surface_metrics/ directory where the surface-based metrics were outputted 
         (using mesh_metrics()) or a directory with the same tree structure (subject folders,
         each with metrics .vtk files inside).
+    metric: str, Sequence
+        The name of the one metric to be computed. Options are "thickness", "curvature", "surfarea", or the name of metric specified for cifti_extract() outputs.
     roilabel: str, Sequence
         The name or array of names for the region(s)-of-interest to analyse: 'left-cerebellum-cortex', 'right-cerebellum-cortex', 'left-pallidum', 'right-pallidum', 'left-putamen', 
         'right-putamen', 'left-thalamus', 'right-thalamus','left-amygdala',  'right-amygdala', 'left-hippocampus', 'right-hippocampus', 'left-accumbens-area','right-accumbens-area','left-caudate', 'right-caudate', 'left-ventraldc', 'right-ventraldc', and 'brain-stem'.
@@ -88,7 +90,9 @@ def slm_analysis(
     sub_list: str, Sequence
         An optional list of subject IDs to determine whose surface is to be included in the
         analysis. Surfaces whose path does not contain a subject ID from the list will be 
-        ignored. If not specified, all surfaces found will be included.
+        ignored. If not specified, all surfaces found will be included. Note that for 
+        cifti_metrics() outputs, sessions, tasks, runs and acquisitions are treated as different
+        subjects and so should be listed following to the names of its subdirectories.
     
     Returns
     -------
@@ -120,16 +124,18 @@ def slm_analysis(
     
     #group meshes from mesh_list by subject to merge multiple rois
     def getsubid(p):
-        m = re.search(r'sub-\w+', str(p))
-        return m.group() if m else ''
+        m = re.search(r"(sub-\d+(?:_ses-\d+)?(?:_task-[^_]+)?(?:_acq-[^_]+)?(?:_run-\d+)?)",
+        str(p)) 
+        return m.group(0) if m else ''
     
     #flag subjects with missing labels for the roilabel given
     for sub in sub_list:
-        sub_labels = {p.stem.replace(f'_{metric}', '') for p in mesh_list if getsubid(p) == sub}
+        sub_labels = {p.stem.replace(f'_{metric}', '') for p in mesh_list if p.parent.name == sub}
         missing = set(labels) - sub_labels
         if missing:
             warnings.warn(f"{sub} missing ROIs: {missing}")
-    
+
+
     surf_data = []
     appender = vtk.vtkAppendPolyData()
     for subject, subject_meshes in groupby(sorted(mesh_list, key=getsubid), key=getsubid):

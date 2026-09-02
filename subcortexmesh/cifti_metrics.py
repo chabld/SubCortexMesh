@@ -110,10 +110,9 @@ def cifti_metrics(
         
         if not silent: 
             print(f"Extracting CIFTI data for {subid}... [{subindex}/{len(sub_list)}]")
-        #preparing subdir
+        
+        #preparing outputdir
         os.makedirs(f"{outputdir}/surface_metrics_cifti/", exist_ok=True)
-        subdir = f"{outputdir}/surface_metrics_cifti/{subid}" 
-        os.makedirs(subdir, exist_ok=True)
         
         #look for relevant dscalar file(s)
         sub_files = [os.path.join(dp, f)
@@ -136,11 +135,13 @@ def cifti_metrics(
             #will save it in a ses/run/acq specific folders to avoid conflicts in later tools
             if m:
                 sub_ses = m.group(1)
-                subdir_spec=os.path.join(subdir, sub_ses)
+                subdir_spec=os.path.join(outputdir,"surface_metrics_cifti",f"{subid}_{sub_ses}") 
                 os.makedirs(subdir_spec, exist_ok=True)
                 if not silent: 
                     print(f"=> Loading {sub_ses} scalar...")
-            
+            else:
+                subdir_spec=os.path.join(outputdir,"surface_metrics_cifti",subid) 
+                os.makedirs(subdir_spec, exist_ok=True)
             
             ###############################################################################
             ###############################FETCHING CIFTI DATA#############################
