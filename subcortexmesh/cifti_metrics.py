@@ -27,6 +27,7 @@ def cifti_metrics(
                                     'left-pallidum', 'right-pallidum', 'left-putamen', 'right-putamen', 'left-thalamus', 'right-thalamus','left-amygdala', 'right-amygdala', 'left-hippocampus','right-hippocampus', 'left-accumbens-area','right-accumbens-area','left-caudate', 'right-caudate', 'left-ventraldc', 'right-ventraldc', 'brain-stem'],
     toolboxdata: Optional[Union[str, Path]] = None,
     plot_projection: bool = False,
+    cmap: str = 'jet',
     overwrite: bool = True,
     silent: bool = False):
     
@@ -60,6 +61,8 @@ def cifti_metrics(
         be prompted to download it if not found.
     plot_projection: bool
         Whether to plot the voxel-space values next to the template-space mesh the values are projected to. Default is False.
+    cmap: str
+        Name of the color map to be assigned to the volume, as listed in matplotlib's colormaps. Default is "jet".
     overwrite : bool
         Whether files are to be overwritten or skipped if already in outputdir. 
         Default is True.
@@ -289,8 +292,8 @@ def cifti_metrics(
                         plotter = pv.Plotter()
                         
                         region_surf = vol_thresh.extract_surface(algorithm='dataset_surface')
-                        plotter.add_mesh(region_surf, scalars=metric, cmap="viridis", clim=clim, opacity=1)
-                        mesh_actor = plotter.add_mesh(mesh_pv, scalars=metric, cmap="viridis", clim=clim, backface_culling=False)
+                        plotter.add_mesh(region_surf, scalars=metric, cmap=cmap, clim=clim, opacity=1)
+                        mesh_actor = plotter.add_mesh(mesh_pv, scalars=metric, cmap=cmap, clim=clim, backface_culling=False)
                         
                         #slider to allow users to separate mesh from volume
                         def update_y(value):

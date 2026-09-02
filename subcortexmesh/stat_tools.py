@@ -58,7 +58,7 @@ def slm_analysis(
         The surface_metrics/ directory where the surface-based metrics were outputted 
         (using mesh_metrics()) or a directory with the same tree structure (subject folders,
         each with metrics .vtk files inside).
-    metric: str, Sequence
+    metric: str
         The name of the one metric to be computed. Options are "thickness", "curvature", "surfarea", or the name of metric specified for cifti_extract() outputs.
     roilabel: str, Sequence
         The name or array of names for the region(s)-of-interest to analyse: 'left-cerebellum-cortex', 'right-cerebellum-cortex', 'left-pallidum', 'right-pallidum', 'left-putamen', 

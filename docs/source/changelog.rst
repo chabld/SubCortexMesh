@@ -1,6 +1,13 @@
 Updates
 =========
 
+v1.2.2 (TBC)
+--------------
+
+NEW FEATURES
+~~~~~~~~~~~~
+- Added a cmap argument for the plotter of cifti_metrics().
+
 v1.2.1
 --------------
 FIXES
