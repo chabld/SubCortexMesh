@@ -36,9 +36,9 @@ def cifti_metrics(
     This function extracts the ~30k voxel-based subcortical grayordinates, in CIFTI (Connectivity Informatics Technology Initiative) file format, and projects their values to a surface template space. This is done with SCM's fsaverage template surfaces as CIFTI subcortices are also based on the ASeg segmentations. It is compatible with 91k outputs such as that of the Human Connectome Project preprocessing pipeline or pipelines that output cifti such as ASLprep, fMRIprep, XCP-D. It works similarly to mesh_metrics() and creates a surface_metrics_cifti/ output directory, containing surfaces with their CIFTI values (in separate subdirectories per session-,task-,run- and acq- when applicable). It also produces summary statistics, but only in template space as no subject surface is created in this process.
     
     Parallel processes: to avoid conflicts, subjects will be skipped if a "isrunning" tmp 
-    file exists to mark them as currently processing. The tmp file is removed at the end or 
-    replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to 
-    rerun a subject before the 1 hour (its path is printed when flagged). 
+    file exists (in tempfile.gettempdir()) to mark them as currently processing. The tmp file 
+    is removed at the end or replaced if 1 hour old. If a process has been interrupted, remove 
+    the tmp manually to rerun a subject before the 1 hour (its path is printed when flagged). 
     
     Parameters
     ----------

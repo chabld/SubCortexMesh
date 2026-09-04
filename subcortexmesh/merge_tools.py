@@ -32,9 +32,9 @@ def merge_all(
     merged mesh will be saved along the surface meshes in the directories used as input.
     
     Parallel processes: to avoid conflicts, subjects will be skipped if a "isrunning" tmp 
-    file exists to mark them as currently processing. The tmp file is removed at the end or 
-    replaced if 1 hour old. If a process has been interrupted, remove the tmp manually to 
-    rerun a subject before the 1 hour (its path is printed when flagged). 
+    file exists (in tempfile.gettempdir()) to mark them as currently processing. The tmp file 
+    is removed at the end or replaced if 1 hour old. If a process has been interrupted, remove 
+    the tmp manually to rerun a subject before the 1 hour (its path is printed when flagged). 
     
     Parameters
     ----------
