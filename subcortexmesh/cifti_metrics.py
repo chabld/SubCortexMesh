@@ -333,7 +333,8 @@ def cifti_metrics(
                     if not silent: 
                         print(f"   {regionlabel} already extracted.")
         
-        os.remove(fname)  #cleanup tmp file
+        if os.path.exists(fname):
+            os.remove(fname)  #cleanup tmp file
     
     if not silent: 
             print(f"Surface metrics stored to {outputdir}/surface_metrics_cifti/")

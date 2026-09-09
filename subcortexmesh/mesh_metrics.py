@@ -569,7 +569,8 @@ def mesh_metrics(
             if not silent: 
                 print(f"=> No mesh file (.vtk) found at all for {subid}.")
         
-        os.remove(fname)  #cleanup tmp file
+        if os.path.exists(fname):
+            os.remove(fname)  #cleanup tmp file
     
     if not silent: 
             print(f"Surface metrics stored to {outputdir}/surface_metrics/")

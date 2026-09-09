@@ -213,7 +213,8 @@ def merge_all(
                 if not silent: 
                     print(f"=> {measure} already merged")
         
-        os.remove(fname)  #cleanup tmp file
+        if os.path.exists(fname):
+            os.remove(fname)  #cleanup tmp file
                     
                 
 ###################################################################

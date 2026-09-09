@@ -309,4 +309,5 @@ def subseg_getvol(
         else:
             print(f"The coregistered T1 may have failed to be computed. Expected file: {antsdir}/{seglabel}_{template}_rigid_coreg.nii.gz")
         
-        os.remove(fname)  #cleanup tmp file
+        if os.path.exists(fname):
+            os.remove(fname)  #cleanup tmp file

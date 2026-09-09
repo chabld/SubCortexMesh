@@ -230,5 +230,6 @@ def vol2surf(
             if not silent: 
                 print(f"  => No volume file (.nii) found at all for {subid}.")
         
-        os.remove(fname)  #cleanup tmp file
+        if os.path.exists(fname):
+            os.remove(fname)  #cleanup tmp file
                 
