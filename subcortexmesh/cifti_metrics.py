@@ -77,6 +77,26 @@ def cifti_metrics(
     if not os.path.exists(f"{inputdir}"):
         raise FileNotFoundError("Input directory not found. Please verify the path provided as inputdir.")
     
+    #making sure dscalar is interpret as string
+    dscalar=re.escape(dscalar)
+    
+    #roilabel name checks
+    if isinstance(roilabel, str):
+        roilabel_list = [roilabel] #if single roilable, turn to list so the check can be done too
+    else:
+        roilabel_list = list(roilabel)
+    invalid = [r for r in roilabel_list if r not in {
+        'left-cerebellum-cortex', 'right-cerebellum-cortex',
+        'left-pallidum', 'right-pallidum', 'left-putamen', 'right-putamen',
+        'left-thalamus', 'right-thalamus', 'left-amygdala', 'right-amygdala',
+        'left-hippocampus', 'right-hippocampus', 'left-accumbens-area', 'right-accumbens-area',
+        'left-caudate', 'right-caudate', 'left-ventraldc', 'right-ventraldc',
+        'brain-stem'}]
+    if invalid:
+        raise FileNotFoundError(
+            f"The following regions given to the roilabel argument are not applicable: {invalid}. "
+            f"Refer to the labels laid out in the default documentation for the exact names.")
+    
     #creates folder where volumes will go 
     subvol_path = os.path.join(outputdir, "surface_metrics_cifti")
     if not silent and not os.path.exists(subvol_path):
@@ -122,11 +142,22 @@ def cifti_metrics(
                 for dp, dn, fn in os.walk(f"{inputdir}/{subid}/")
                 for f in fn if re.search(dscalar, f)]
         
+        if not sub_files:
+            if not silent: 
+                print(f"No files matching dscalar found.")
+        
+        #parser to get the right potential BIDS sub-divisions in a file
+        def extract_bids_key(filename, keys=("ses", "task", "acq", "ce", "rec", "dir", "run")):
+            basename = os.path.basename(filename)
+            # matches any key-label or key-index token, e.g. 'task-rest', 'run-01'
+            tokens = re.findall(r"([a-zA-Z]+)-([a-zA-Z0-9]+)", basename)
+            matched = [f"{k}-{v}" for k, v in tokens if k in keys]
+            return "_".join(matched) if matched else None
+        
         #check for duplicate matches within the same session/task/acq/run (can happen in dscalar is too broad)
         seen = {}
         for f in sub_files:
-            m = re.search(r"(ses-\d+(?:_task-[^_]+)(?:_acq-[^_]+)?(?:_run-\d+)?)", f)
-            key = m.group(1) if m else f
+            key = extract_bids_key(f) or f #fall back to full name if no BIDS entities found
             if key in seen:
                 raise ValueError(f"Multiple dscalar files matched the pattern '{dscalar}' for {subid} in the exact same session/task/run. Narrow the `dscalar` pattern to make sure one is selected.")
             seen[key] = f
@@ -134,15 +165,16 @@ def cifti_metrics(
         for ciftifile in sub_files:
             
             #checking for session, run etc. in file name
-            m = re.search(r"(ses-\d+(?:_task-[^_]+)(?:_acq-[^_]+)?(?:_run-\d+)?)", ciftifile)
+            sub_ses = extract_bids_key(ciftifile)   # None if no BIDS entities found
+            
             #will save it in a ses/run/acq specific folders to avoid conflicts in later tools
-            if m:
-                sub_ses = m.group(1)
+            if sub_ses:
                 subdir_spec=os.path.join(outputdir,"surface_metrics_cifti",f"{subid}_{sub_ses}") 
                 os.makedirs(subdir_spec, exist_ok=True)
                 if not silent: 
                     print(f"=> Loading {sub_ses} scalar...")
             else:
+                sub_ses=subid
                 subdir_spec=os.path.join(outputdir,"surface_metrics_cifti",subid) 
                 os.makedirs(subdir_spec, exist_ok=True)
             
@@ -187,7 +219,7 @@ def cifti_metrics(
             #extract per region
             for regionlabel in struct_to_region.values():
                 
-                if regionlabel not in roilabel:
+                if regionlabel not in roilabel_list:
                     continue
                 
                 out_path=f"{subdir_spec}/{regionlabel}_{metric}.vtk"
