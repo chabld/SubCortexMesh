@@ -1,12 +1,18 @@
 Updates
 =========
 
-v1.2.2 (TBC)
+v1.2.2
 --------------
 
 NEW FEATURES
 ~~~~~~~~~~~~
+- Added an article to showcase CIFTI data extraction
 - Added a cmap argument for the plotter of cifti_metrics().
+
+FIXES
+~~~~~
+- cifti_metrics() now has a more robust parsing to identify task-, ses-, run- and other BIDS patterns from the files
+- cifti_metrics() now returns an error when a non-applicable roilabel has been entered instead of failing silently. It will also clearly state if files have not been found a for a subject if silent=False. 
 
 v1.2.1
 --------------
