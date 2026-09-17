@@ -4,15 +4,16 @@
 .. toctree::
    :maxdepth: 1
    :caption: About
-
+   
    self
-   changelog
    atlases
+   cifti
+   changelog
 
 .. toctree::
    :maxdepth: 1
    :caption: Functions
-
+   
    subseg_getvol
    vol2surf
    qc_tools
