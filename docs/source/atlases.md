@@ -1,4 +1,4 @@
-# Surface-based atlases and subsections
+# Surface-based atlases
 
 ## Anatomical atlas
 
