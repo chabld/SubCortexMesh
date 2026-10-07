@@ -804,3 +804,62 @@ def cluster_summary(
         results[contrast_label] = sig
     
     return results
+
+#####################################################################################
+##########Concatenating descriptive stats from the metrics directory#################
+
+
+def cohortwide_stats(
+    inputdir: Union[str, Path],
+    table: str, 
+    column: str = "mean",  
+    save: bool = True,
+    outputdir: Optional[Union[str, Path]] = None,
+):
+    """Cohort-wide descriptive statistics
+    
+    Function to gather all descriptive statistics from individual tables in the surface_metrics/ 
+    directory outputed by mesh_metrics(). It picks one user-defined value column (e.g. "mean") and 
+    will create a global table where each row is a subject, and each column is a region with 
+    the selected value. 
+    
+    Parameters
+    ----------
+    inputdir : str, Path
+        The surface_metrics/ directory where the surface-based metrics and statistics tables 
+        were outputted (using mesh_metrics()) or a directory with the same tree structure 
+        (subject folders, each with a stats/ folder inside).
+    table : str
+        Name of the tables to merge, e.g. 'curvature_stats' or 'curvature_stats_atlas', without
+        the ".txt" extension.
+    column : str
+        Column from the statistics tables to merge: 'mean', 'sd', 'min', 'max', 'range' or 
+        'n_vert'. Default is 'mean'.
+    save : bool, optional
+        Wether to write the table to the path given in outputdir as a .csv table. Default is 
+        false.
+    outputdir : str, Path, optional
+        If save is True, where to write the .csv table.
+    
+    Returns
+    -------
+        DataFrame, rows = subjects, columns = regions
+    """
+    series = {}
+    for f in sorted(Path(inputdir).glob(f"sub-*/stats/{table}.txt")):
+        df = pd.read_csv(f, sep="\t", index_col="label")
+        series[f.parent.parent.name] = df[column]
+    
+    if not series:
+        raise FileNotFoundError(f"No {table}.txt found under {inputdir}")
+    
+    out = pd.DataFrame(series).T
+    out.index.name = "subject"
+    
+    if save:
+        outputdir = Path(outputdir)
+        outputdir.mkdir(parents=True, exist_ok=True)
+        out.to_csv(outputdir / f"{table}_cohort.csv")
+    
+    return out
+ 
