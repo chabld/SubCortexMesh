@@ -43,7 +43,7 @@ def cifti_metrics(
     Parameters
     ----------
     dscalar: str
-        The specific pattern of the CIFTI file names (.dscalar.nii). These files names differ with the values and processing pipelines, so a suffix e.g "_den-91k_stat-reho_boldmap.dscalar" specifies reho maps are to be extracted. The function will not extract multiple values ('reho', 'alff', 'cbf' etc.) so make sure the pattern contains one.
+        The specific pattern of the CIFTI file names (.dscalar.nii). These files names differ with the values and processing pipelines, so a suffix e.g "_den-91k_stat-reho_boldmap.dscalar" specifies reho maps are to be extracted. The function will not extract multiple values ('reho', 'alff', 'cbf' etc.) so make sure the pattern contains one. Wildcards ".*" are allowed if someone wants to specify a BIDS pattern (e.g., ".*ses-2.*rest.*_den-91k_stat-reho_boldmap.dscalar" ).
     metric: str
         The name of the metric to be computed as string. It will be used to name the surface files, scalars and identify them with the merging tools.
     inputdir : str, Path
@@ -76,9 +76,6 @@ def cifti_metrics(
     #paths check
     if not os.path.exists(f"{inputdir}"):
         raise FileNotFoundError("Input directory not found. Please verify the path provided as inputdir.")
-    
-    #making sure dscalar is interpret as string
-    dscalar=re.escape(dscalar)
     
     #roilabel name checks
     if isinstance(roilabel, str):
@@ -256,6 +253,9 @@ def cifti_metrics(
                     #####################################################################################
                     #######################################VOL-TO-MESH###################################
                     
+                    if not silent: 
+                        print("   Projecting data to template surface space...")
+                        
                     #load meshes corresponding to volumes
                     mesh = load_mesh(f"{toolboxdata}/template_data/fsaverage/surfaces/{regionlabel}.vtk")
                     
