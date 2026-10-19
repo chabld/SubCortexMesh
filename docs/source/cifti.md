@@ -38,11 +38,11 @@ The plot_projection argument allows users to inspect the voxel-to-surface projec
 
 ![ReHo data projected from the left-putamen's voxel to its matching template surface](_static/figures/left-putamen_reho.png)
 
-The outputted data is similar to that of mesh_metrics(), with cifti_metrics() creating a directory named 'surface_metrics_cifti/', that contains the .vtk surfaces for each region of interest with their CIFTI metric values as scalar (in separate subdirectories per session-, task-, run- and acq- etc. when applicable). 
+The outputted data is equivalent to that of mesh_metrics(), with cifti_metrics() creating a directory named 'surface_metrics_cifti/', that contains the .vtk surfaces for each region of interest with their CIFTI metric values as scalar (in separate subdirectories per session-, task-, run- and acq- etc. when applicable). These surface metrics can likewise be merged into a single surface object using merge_all(). 
 
 ## Statistics
 
-cifti_metrics() automatically produces summary statistics in template space in a "stats" directory for each subjects, with tables summarising the metric vlaues per region and atlas parcellation:
+cifti_metrics() automatically produces summary statistics in template space in a "stats" directory for each subjects, with tables summarising the metric values per region and atlas parcellation:
 
 | Label                 | Mean  | SD    | Min   | Max   | Range | n_vert |
 |-----------------------|-------|-------|-------|-------|-------|--------|
@@ -52,7 +52,7 @@ cifti_metrics() automatically produces summary statistics in template space in a
 | right-amygdala        | 0.121 | 0.039 | 0.037 | 0.244 | 0.208 | 1792   |
 ... 
 
-Vertex-wise analyses can also be applied the same way the outputs of mesh_metrics(), the only difference being the "metric" specified is now one of the CIFTI scalars (e.g., 'reho') instead of thickness, surfarea or curvature.
+Vertex-wise analyses (with slm_analysis()) can also be applied to the surface_metrics_cifti/ output directory, just like with the output of mesh_metrics(). The only difference being that the "metric" specified is now one of the CIFTI scalars (e.g., 'reho') instead of thickness, surfarea or curvature.
 
 ## References
 

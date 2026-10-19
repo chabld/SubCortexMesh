@@ -23,7 +23,7 @@ This toolbox provides commands to process and analyse surface-based measures of 
 
 ![](figures/SCM_flowchart.png)
 
-The toolbox automatically converts a subjects directory's subcortical segmentation volumes to 3D surface meshes. SubCortexMesh:
+For FreeSurfer and FSL outputs, the toolbox automatically converts a subjects directory's subcortical segmentation volumes to 3D surface meshes. SubCortexMesh:
 
 -   Rigidly coregisters subject-space volumes to a template space (MNI). It solely does rotation and no interpolation to preserve subject-space dimensions.
 
@@ -40,6 +40,8 @@ The toolbox automatically converts a subjects directory's subcortical segmentati
 [^1]: The fsaverage/MNI305 surface-based templates for each ROI have been produced by using SubCortexMesh's own functions (subseg_getvol(), vol2surf()) with default parameters, on the fsaverage template's own aseg.mgz in FreeSurfer 7.4.1 (\$FREESURFER_HOME/subjects/fsaverage/mri/aseg.mgz).
 
 [^2]: The fslfirst/MNI152 surface-based templates for each ROI have also been produced by using SubCortexMesh's own functions (subseg_getvol(), vol2surf()) with the same parameters (except smoothing=20). The segmentations volumes were obtained using FSL v.6.0.6's own probabilistic models (.bmv files in \$FSLDIR/data/first/models_336_bin/) on the standard MNI 152 1mm T1w volume (\$FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz). Cerebellar meshes were produced using [run_first](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage), with "-n 40" modes, using the putamen intensities to normalise its intensity sample as recommended by the latter's documentation.
+
+Note that for [CIFTI data extraction](https://subcortexmesh.readthedocs.io/en/stable/cifti.html), SubCortexMesh goes straight to the last step above, by projecting the CIFTI data's subcortical voxel-wise values to their corresponding fsaverage surface template (as CIFTI is based on FreeSurfer's ASeg). It also outputs descriptive statistics in that template space. Please refer to the [corresponding article](https://subcortexmesh.readthedocs.io/en/stable/cifti.html) for more information on the CIFTI data workflow.
 
 ## Installation
 
@@ -190,13 +192,13 @@ mesh_metrics() also saves summary statistics tables in each subject directory, f
 | left-amygdala        | 0.685 | 0.199 | 0.159 | 1.254 | 1.095 | 1288   |
 | ...                  |       |       |       |       |       |        |
 
-The plotting arguments are also False by default and allow users to check the computation process. The medial curve, the line crossing through the centre of the mesh (A) is fundamental to the thickness measure, as it is a measure of radial distance between the medial curve and the outer surface. It is also used to align the subject-space and template-space mesh further. Likewise, plotting the subject surface (B) and its template equivalent (C) shows how accurate the standardisation was.
+The plotting arguments are False by default and allow users to check the computation process. The medial curve, the line crossing through the centre of the mesh (A) is fundamental to the thickness measure, as it is a measure of radial distance between the medial curve and the outer surface. It is also used to align the subject-space and template-space mesh further. Likewise, plotting the subject surface (B) and its template equivalent (C) shows how accurate the standardisation was.
 
 ![](figures/medialcurve_standardization.png)
 
 ### Merging all surfaces
 
-It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This is what the following command accomplishes, subject-per-subject:
+It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This can be done with the structural metrics (outputted by mesh_metrics()) and extracted CIFTI data (outputted by cifti_metrics()). This is what the following command accomplishes in a mesh_metrics() output, subject-per-subject:
 
 ``` python
 from subcortexmesh import merge_all
@@ -220,7 +222,7 @@ While vis_merged() includes the 3D slider view, vis_merged_flat() writes a .png 
 
 ### Statistical analyses
 
-Users can run statistical analyses on the surface-based metrics with any potential software that can work with .vtk meshes and read their metrics scalars. SubCortexMesh provides a small wrapper for [BrainStat's SLM analysis tools](https://brainstat.readthedocs.io/en/master/python/tutorials/tutorial_1.html#python-tutorial1), which fit linear or linear mixed models with surface-based values.  
+Users can run statistical analyses on the surface-based metrics with any potential software that can work with .vtk meshes and read their metrics scalars. SubCortexMesh provides a wrapper for [BrainStat's SLM analysis tools](https://brainstat.readthedocs.io/en/master/python/tutorials/tutorial_1.html#python-tutorial1), which fit linear or linear mixed models with surface-based values.  
 
 The slm_analysis() function facilitates the process of collating surface data by reading scalars from every surface available with a (set of) selected region(s) and one metric, and appending them into a single numpy array (N subjects x V vertices). The collated meshes are ordered alphanumerically according to the subject IDs of the surface_metrics/ subfolders, so users need to make sure the order matches that of model/contrast variables (which contains behavioural/phenotypic variables to associate the surface metrics with).
 
