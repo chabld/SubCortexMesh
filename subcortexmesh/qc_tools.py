@@ -360,6 +360,7 @@ def surf_qcplot(
 def autoqc_outliers(
     inputdir: Union[str, Path], 
     n_sd: float = 2,
+    outputdir: Optional[Union[str, Path]] = None,
     silent: bool = False,
     ):
     """Automated algorithm to flag surface outliers
@@ -374,8 +375,8 @@ def autoqc_outliers(
     - Symmetry: how spread are vertices between the mesh's two halves
     
     For each ROI and subject, it will flag, relatively to the same ROI across the 
-    cohort in sub_surfaces/, whether a subject's mesh diverges in 1, 2, 3 or 
-    all 4 features (± N standard deviations from the mean).
+    cohort in sub_surfaces/, whether a subject's mesh diverges in 1, 2, 3, 4 or 
+    all 5 features (± N standard deviations from the mean).
     
     Parameters
     ----------
@@ -384,6 +385,8 @@ def autoqc_outliers(
     n_sd : float
         The number of standard deviations from the mean feature value, above or under 
         which a subject's label is to be flagged as an outlier. Default is 2.
+    outputdir : str, Path, optional
+        A path to the directory where the outlier table can be saved as "autoqc_outliers.csv" sheet.
     silent : bool
         Whether messages about the process are to be printed. Default is False.
     
@@ -391,7 +394,7 @@ def autoqc_outliers(
     -------
     flag_df : data.frame
         A data.frame array listing each subject per row, and each ROI per column. Each ROI is
-        assigned 0 to 4 values, indicating whether the ROI for that subject was an outlier on
+        assigned 0 to 5 values, indicating whether the ROI for that subject was an outlier on
         none,any or all four heuristic features.
     """
     
@@ -494,6 +497,11 @@ def autoqc_outliers(
             mean, std = vals.mean(), vals.std()
             outliers = vals[(vals < mean - n_sd*std) | (vals > mean + n_sd*std)].index
             flag_df.loc[outliers, roi] += 1  # accumulate flag count across features
+    
+    #save to CSV if needed
+    if outputdir is not None:
+        os.makedirs(outputdir, exist_ok=True)
+        flag_df.to_csv(os.path.join(outputdir, "autoqc_outliers.csv"), index=True, index_label="subject")
     
     #flag_df contains 0-4 per subject/structure (0 means the subject is outlying in no feature,
     #4 means subject is outlying on all four features)
