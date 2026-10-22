@@ -29,7 +29,8 @@ def cifti_metrics(
     plot_projection: bool = False,
     cmap: str = 'jet',
     overwrite: bool = True,
-    silent: bool = False):
+    silent: bool = False,
+    sub_list: Optional[Sequence[str]] = None):
     
     """Subcortical grayordinates from CIFTI files
     
@@ -68,6 +69,8 @@ def cifti_metrics(
         Default is True.
     silent : bool
         Whether messages about the process are to be printed. Default is False.
+    sub_list: str, Sequence, optional
+        An optional list of subject IDs to be processed. If not specified, all subjects found will be included.
     """
     
     #template data is needed
@@ -108,8 +111,19 @@ def cifti_metrics(
         return reader.GetOutput()
         
     #list subjects 
-    sub_list = [f for f in next(os.walk(inputdir))[1] if re.search(r'(sub-[\w-]+)', f)]
-    sub_list.sort()   
+    if sub_list is None:
+        sub_list = [f for f in next(os.walk(inputdir))[1] if re.search(r'(sub-[\w-]+)', f)]
+        sub_list.sort()   
+    elif isinstance(sub_list, str):
+        sub_list=[sub_list]
+    
+    #error if sub_list empty
+    if sub_list==[]:
+        raise FileNotFoundError("No subject folders identified. Ensure inputdir is the directory that contains sub-ID subfolders.")
+    
+    #error if metric not a single string:
+    if not isinstance(metric, str): 
+        raise ValueError("metric can only be one string, related to the specified dscalar")
     
     subindex=0
     for subid in sub_list:
@@ -122,11 +136,11 @@ def cifti_metrics(
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:
                 if not silent:
-                    print(f"{subid} already running (tmp file: {fname}).")
+                    print(f"{subid} already running (tmp file: {Path(fname).as_posix()}).") 
                 continue
         #creates tmp if loop wasn't skipped
         with open(fname, "w"):
-                pass
+            pass
         
         if not silent: 
             print(f"Extracting CIFTI data for {subid}... [{subindex}/{len(sub_list)}]")

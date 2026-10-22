@@ -9,26 +9,27 @@ import os
 import tempfile
 import time
 import pyvista as pv
-from typing import Union, Sequence
+from typing import Union, Sequence, Optional
 from pathlib import Path
 
 def vol2surf(
     inputdir: Union[str, Path],
     outputdir: Union[str, Path],
-    dilate_erode: bool = True,
     roilabel: Union[str, Sequence[str]] = ['left-cerebellum-cortex', 'right-cerebellum-cortex', 
                                     'left-pallidum', 'right-pallidum', 'left-putamen', 'right-putamen', 'left-thalamus', 'right-thalamus','left-amygdala', 'right-amygdala', 'left-hippocampus','right-hippocampus', 'left-accumbens-area','right-accumbens-area','left-caudate', 'right-caudate', 'left-ventraldc', 'right-ventraldc', 'brain-stem'],
+    dilate_erode: bool = True,
     smoothing: int = 15,
     plot_volnext2surf: bool = False,
     overwrite: bool = True,
-    silent: bool = False
+    silent: bool = False,
+    sub_list: Optional[Sequence[str]] = None
     ):
     """Converting subcortical volumes to surface meshes
     
     This function function converts the separate volumes outputted by subseg_getvol, 
     using the discrete marching cube method. This includes pre-conversion dilation/erosion 
     of the volume and smoothing of the surface (both can be disabled) to ensure meshes are 
-    not too coarse and noisy. Note that the dilation/smootinh process was applied to the 
+    not too coarse and noisy. Note that the dilation/smoothing process was applied to the 
     meshes used as the standard space in mesh_metrics().
     
     An optional argument can be provided to visualise the volume and its rendered mesh
@@ -66,11 +67,24 @@ def vol2surf(
         True.
     silent : bool
         Whether messages about the process are to be printed. Default is False.
+    sub_list: str, Sequence, optional
+        An optional list of subject IDs to be processed. If not specified, all subjects found will be included.
     """
     
-    #list subjects 
-    sub_list =[    d for d in os.listdir(inputdir)
-        if os.path.isdir(os.path.join(inputdir, d))]
+    if sub_list is None:
+        #list subjects 
+        sub_list =[    d for d in os.listdir(inputdir)
+            if os.path.isdir(os.path.join(inputdir, d))]
+    elif isinstance(sub_list, str):
+        sub_list=[sub_list]
+    
+    #error if sub_list empty
+    if sub_list==[]:
+        raise FileNotFoundError("No subject folders identified. Ensure inputdir is the directory that contains sub-ID subfolders.")
+        
+    #Turn roilabel to list if a single string:
+    if isinstance(roilabel, str): 
+        roilabel = [roilabel]
     
     #creates folder where surfaces will go 
     subsurf_path = os.path.join(outputdir, "sub_surfaces")
@@ -89,11 +103,11 @@ def vol2surf(
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:
                 if not silent:
-                    print(f"{subid} already running (tmp file: {fname}).")
+                    print(f"{subid} already running (tmp file: {Path(fname).as_posix()}).")
                 continue
         #creates tmp if loop wasn't skipped
         with open(fname, "w"):
-                pass
+            pass
         
         if not silent: 
             print(f"Creating surface meshes for {subid}... [{subindex}/{len(sub_list)}]") 

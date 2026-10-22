@@ -9,7 +9,7 @@ import re
 import glob
 import tempfile
 import time
-from typing import Optional, Union
+from typing import Optional, Union, Sequence
 from pathlib import Path
 from subcortexmesh import template_data_fetch
 import nibabel as nib
@@ -22,6 +22,7 @@ def subseg_getvol(
     toolboxdata: Optional[Union[str, Path]] = None,
     overwrite: bool = True,
     silent: bool = False,
+    sub_list: Optional[Sequence[str]] = None
     ):
     """Extracting and coregistering subcortical volumes from a cohort's subcortical volumes
     
@@ -66,17 +67,19 @@ def subseg_getvol(
     outputdir : str, Path
         The path where subcortical volumes will be saved (creates the "sub_volumes" 
         directory).
+    template: str
+        The name of the template the surfaces are supposed to be matching to. For FreeSurfer
+        outputs, it is 'fsaverage'. For FSL FIRST, it is 'fslfirst'.
     toolboxdata : str, Path, optional
         The path of the "subcortexmesh_data" package data directory. The  default path 
         is assumed to be the user's home directory (pathlib's Path.home()). Users will 
         be prompted to download it if not found.
-    template: str
-        The name of the template the surfaces are supposed to be matching to. For FreeSurfer
-        outputs, it is 'fsaverage'. For FSL FIRST, it is 'fslfirst'.
     overwrite : bool
         Whether files are to be overwritten or skipped if already in outputdir. Default is True. 
     silent : bool
         Whether messages about the process are to be silenced. Default is False.
+    sub_list: str, Sequence, optional
+        An optional list of subject IDs to be processed. If not specified, all subjects found will be included.
     """
     
     #template data is needed
@@ -104,11 +107,18 @@ def subseg_getvol(
     #indices are in the second column (from lines with no #) printed
     roi_indices = sorted({int(line.split()[1]) for line in open(f"{toolboxdata}/template_data/{template}/{seglabel}_labels.txt") if not line.startswith("#")})
     
-    #list subs (1st depth of inputdir, and only counted as sub folders with the right "sub-xxx" pattern)
     pattern = r'(sub-[\w-]+)'
-    sub_list = [f for f in next(os.walk(inputdir))[1] if re.search(pattern, f)]
-    sub_list.sort()     
-        
+    if sub_list is None:
+        #list subs (1st depth of inputdir, and only counted as sub folders with the right "sub-xxx" pattern)
+        sub_list = [f for f in next(os.walk(inputdir))[1] if re.search(pattern, f)]
+        sub_list.sort()     
+    elif isinstance(sub_list, str):
+        sub_list=[sub_list]
+    
+    #error if sub_list empty
+    if sub_list==[]:
+        raise FileNotFoundError("No subject folders identified. Ensure inputdir is the directory that contains sub-ID subfolders.")
+    
     subindex=0
     for subid in sub_list: 
         subindex=subindex+1
@@ -120,11 +130,11 @@ def subseg_getvol(
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:
                 if not silent:
-                    print(f"{subid} already running (tmp file: {fname}).")
+                    print(f"{subid} already running (tmp file: {Path(fname).as_posix()}).")
                 continue
         #creates tmp if loop wasn't skipped
         with open(fname, "w"):
-                pass
+            pass
         
         #subject id reformatted and limited to sub-xxx for SCM
         newsubid=re.search(pattern, subid).group(1) 
@@ -138,10 +148,14 @@ def subseg_getvol(
         if not os.path.exists(f"{inputdir}/{subid}/mri/aseg.mgz") and template=='fsaverage':
             if not silent: 
                 print(f"{subid} has no aseg.mgz file in its mri/ directory.")
+            if os.path.exists(fname):
+                os.remove(fname)  #cleanup tmp file
             continue
         if not glob.glob(f"{inputdir}/{subid}/*all_fast_firstseg.nii.gz") and template=='fslfirst':
             if not silent: 
                 print(f"{subid} has no *all_fast_firstseg.nii.gz file in the subject directory.")
+            if os.path.exists(fname):
+                os.remove(fname)  #cleanup tmp file
             continue
         
         #will make a inputdirectory called "ants" in the freesurfer output for the warped volumes for tidiness
@@ -173,6 +187,8 @@ def subseg_getvol(
                 else:
                     if not silent:
                         print(f"{subid} has no segmentation file (*all_fast_firstseg.nii.gz) file in inputdir.")
+                    if os.path.exists(fname):
+                        os.remove(fname)  #cleanup tmp file
                     continue
                 
                 T1vol=(glob.glob(f"{inputdir}/*{subid}*T1w.nii*") or \
@@ -182,6 +198,8 @@ def subseg_getvol(
                 else:
                     if not silent:
                         print(f"{subid} has no T1w file (*T1w.nii*) file in inputdir.")
+                    if os.path.exists(fname):
+                        os.remove(fname)  #cleanup tmp file
                     continue
                 
                 templatevol=f"{toolboxdata}/template_data/fslfirst/MNI152_T1_1mm_brain.nii.gz"

@@ -34,10 +34,11 @@ def mesh_metrics(
     native_meshes: bool = False,
     overwrite: bool = True,
     silent: bool = False,
+    sub_list: Optional[Sequence[str]] = None
     ):
     """Thickness and surface area computation
     
-    This function extract thickness and surface area metrics from subcortical
+    This function extract thickness, curvature and surface area metrics from subcortical
     surface objects outputted in "sub_surfaces", via the following steps:
     
     - It renders medial curves, i.e. singular lines spanning the "core" of the meshes, between its two polar axes (estimated with principal component analysis)
@@ -99,6 +100,8 @@ def mesh_metrics(
         Default is True.
     silent : bool
         Whether messages about the process are to be printed. Default is False.
+    sub_list: str, Sequence, optional
+        An optional list of subject IDs to be processed. If not specified, all subjects found will be included.
     """
     
     #template data is needed
@@ -109,9 +112,20 @@ def mesh_metrics(
     if not os.path.isfile(arraypath) and template=='fsaverage':
         warnings.warn(f"No atlas was found in the template data directory ({toolboxdata}). To obtain the atlas, remove the directory and download the up-to-date data using template_data_fetch().")
     
-    #list subjects in the surface subjects directory
-    sub_list =[    d for d in os.listdir(inputdir)
-        if os.path.isdir(os.path.join(inputdir, d))]
+    if sub_list is None:
+        #list subjects in the surface subjects directory
+        sub_list =[    d for d in os.listdir(inputdir)
+            if os.path.isdir(os.path.join(inputdir, d))]
+    elif isinstance(sub_list, str):
+        sub_list=[sub_list]
+    
+    #error if sub_list empty
+    if sub_list==[]:
+        raise FileNotFoundError("No subject folders identified. Ensure inputdir is the directory that contains sub-ID subfolders.")
+          
+    #Turn roilabel to list if a single string:
+    if isinstance(roilabel, str): 
+        roilabel = [roilabel]
     
     #to silence prints
     #vtk.vtkObject.GlobalWarningDisplayOff()
@@ -137,11 +151,11 @@ def mesh_metrics(
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:
                 if not silent:
-                    print(f"{subid} already running (tmp file: {fname}).")
+                    print(f"{subid} already running (tmp file: {Path(fname).as_posix()}).") 
                 continue
         #creates tmp if loop wasn't skipped
         with open(fname, "w"):
-                pass
+            pass
         
         if not silent: 
             print(f"Computing surface metrics for {subid}... [{subindex}/{len(sub_list)}]")

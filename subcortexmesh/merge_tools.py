@@ -22,7 +22,8 @@ def merge_all(
     plot_merged: bool = False,
     overwrite: bool = True,
     silent: bool = False,
-):
+    sub_list: Optional[Sequence[str]] = None
+    ):
     """Merging all subcortical outputs into a single surface object
     
     This function creates a new mesh merging all subcortical meshes outputted by 
@@ -57,6 +58,8 @@ def merge_all(
         is True.
     silent : bool
         Whether messages about the process are to be printed. Default is False.
+    sub_list: str, Sequence, optional
+        An optional list of subject IDs to be processed. If not specified, all subjects found will be included.
     """
     
     ###################################################################
@@ -105,14 +108,17 @@ def merge_all(
     ###################################################################
     ###################################################################
     
-    #run on subject output directories
-    #list subjects in the surface subjects directory
-    sub_list =[    d for d in os.listdir(inputdir)
-        if os.path.isdir(os.path.join(inputdir, d))]
+    if sub_list is None:
+        #run on subject output directories
+        #list subjects in the surface subjects directory
+        sub_list =[    d for d in os.listdir(inputdir)
+            if os.path.isdir(os.path.join(inputdir, d))]
+    elif isinstance(sub_list, str):
+        sub_list=[sub_list]
     
     #error if sub_list empty
     if sub_list==[]:
-        raise FileNotFoundError(f"No subject folders identified. Ensure inputdir is the directory that contains sub-ID subfolders.")
+        raise FileNotFoundError("No subject folders identified. Ensure inputdir is the directory that contains sub-ID subfolders.")
     
     subindex=0
     for subid in sub_list:
@@ -124,11 +130,11 @@ def merge_all(
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:
                 if not silent:
-                    print(f"{subid} already running (tmp file: {fname}).")
+                    print(f"{subid} already running (tmp file: {Path(fname).as_posix()}).")
                 continue
-        else: #creates tmp
-            with open(fname, "w"):
-                pass
+        #creates tmp if loop wasn't skipped
+        with open(fname, "w"):
+            pass
         
         if not silent: 
             print(f"Creating all-aseg surfaces for {subid}... [{subindex}/{len(sub_list)}]")
