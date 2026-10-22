@@ -37,11 +37,11 @@ For FreeSurfer and FSL outputs, the toolbox automatically converts a subjects di
 
 -   Aligns subject meshes and projects their vertex-wise values to a standard template-based surface, based on fsaverage/MNI305 for FreeSurfer outputs,[^1] and MNI152 for FSL FIRST outputs[^2]. The native space meshes, with their associated scalar metrics, can also be saved.
 
-[^1]: The fsaverage/MNI305 surface-based templates for each ROI have been produced by using SubCortexMesh's own functions (subseg_getvol(), vol2surf()) with default parameters, on the fsaverage template's own aseg.mgz in FreeSurfer 7.4.1 (\$FREESURFER_HOME/subjects/fsaverage/mri/aseg.mgz).
+[^1]: The fsaverage/MNI305 surface-based templates for each ROI have been produced by using SubCortexMesh's own functions (*subseg_getvol()*, *vol2surf()*) with default parameters, on the fsaverage template's own aseg.mgz in FreeSurfer 7.4.1 (\$FREESURFER_HOME/subjects/fsaverage/mri/aseg.mgz).
 
-[^2]: The fslfirst/MNI152 surface-based templates for each ROI have also been produced by using SubCortexMesh's own functions (subseg_getvol(), vol2surf()) with the same parameters (except smoothing=20). The segmentations volumes were obtained using FSL v.6.0.6's own probabilistic models (.bmv files in \$FSLDIR/data/first/models_336_bin/) on the standard MNI 152 1mm T1w volume (\$FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz). Cerebellar meshes were produced using [run_first](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage), with "-n 40" modes, using the putamen intensities to normalise its intensity sample as recommended by the latter's documentation.
+[^2]: The fslfirst/MNI152 surface-based templates for each ROI have also been produced by using SubCortexMesh's own functions (*subseg_getvol()*, *vol2surf()*) with the same parameters (except smoothing=20). The segmentations volumes were obtained using FSL v.6.0.6's own probabilistic models (.bmv files in \$FSLDIR/data/first/models_336_bin/) on the standard MNI 152 1mm T1w volume (\$FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz). Cerebellar meshes were produced using [run_first](https://fsl.fmrib.ox.ac.uk/fsl/docs/structural/first.html#advanced-usage), with "-n 40" modes, using the putamen intensities to normalise its intensity sample as recommended by the latter's documentation.
 
-Note that for [CIFTI data extraction](https://subcortexmesh.readthedocs.io/en/stable/cifti.html), SubCortexMesh goes straight to the last step above, by projecting the CIFTI data's subcortical voxel-wise values to their corresponding fsaverage surface template (as CIFTI is based on FreeSurfer's ASeg). It also outputs descriptive statistics in that template space. Please refer to the [corresponding article](https://subcortexmesh.readthedocs.io/en/stable/cifti.html) for more information on the CIFTI data workflow.
+For [CIFTI data outputs](https://subcortexmesh.readthedocs.io/en/stable/cifti.html), SubCortexMesh goes straight to the last step above, by projecting the CIFTI data's subcortical voxel-wise values to their corresponding fsaverage surface template (as CIFTI is based on FreeSurfer's ASeg). It also outputs descriptive statistics in that template space. Please refer to the [corresponding article](https://subcortexmesh.readthedocs.io/en/stable/cifti.html) for more information on the CIFTI data workflow.
 
 ## Installation
 
@@ -53,14 +53,31 @@ pip install subcortexmesh
 #pip install git+https://github.com/chabld/SubCortexMesh.git
 ```
 
-All SubCortexMesh computations are fully executed in Python, most functions mainly relying on the [VTK](https://vtk.org/) *v*9.5.2 module. Once imported in python, the toolbox requires base template data to be downloaded. The command below is triggered by every function that needs the data. It checks for its existence and if it is not found, it will assist users so they can download it in a default or custom path:
+All SubCortexMesh computations are executed in Python, most functions mainly relying on the [VTK](https://vtk.org/) *v*9.5.2 module. Once imported in python, the toolbox requires base template data to be downloaded. The command below is triggered by every function that needs the data. It checks for its existence and if it is not found, it will assist users so they can download it in a default or custom path:
 
 ``` python
 from subcortexmesh import template_data_fetch
-toolboxdata=template_data_fetch(template='fsaverage') #or 'fslfirst'
+toolboxdata=template_data_fetch(template='fsaverage') #for FreeSurfer/CIFTI, 'fslfirst' for FSL outputs
 ```
 
 ## Getting started
+
+All of SubCortexMesh's processing steps up to the point of statistical analyses can be run at once with the *scm_all()* function, skipping all manual visualisation, running multiple subjects in parallel. For example:
+
+``` python
+from subcortexmesh import scm_all
+scm_all(
+    inputdir="FreeSurfer_sub_directory/",  
+    outputdir="my_outputdir",
+    template='fsaverage', 
+    total_nthread=6, #CPU threads to be used in parallel by the function
+    sub_nthread=2, #maximum CPU threads to be allocated to each subject
+    )
+```
+
+*scm_all()* is a wrapper for the processing functions detailed in this article up to the [Statistical analyses](#statistical-analyses) section, and contains their respective parameters, with the exception of the interactive plotters. Summary quality checks are generated by *autoqc_outliers()* in a qc/ subdirectory.
+
+Below, we detail how to run processing steps separately and visualise their outputs one at a time.
 
 ### Extracting and coregistering subcortical volumes
 
@@ -75,7 +92,9 @@ subseg_getvol(
   outputdir="/my_outputdir/",
   #toolboxdata="/user_path/subcortexmesh_data",
   overwrite=False, 
-  silent=False)
+  silent=False,
+  #sub_list=['sub-01','sub-02'] #optional, to process only specific subjects
+  )
 ```
 
 Notes:
@@ -112,7 +131,8 @@ vol2surf(
     #smoothing=15,
     plot_volnext2surf=True,
     overwrite=False,
-    silent=False
+    silent=False,
+    #sub_list=['sub-01','sub-02']
     )
 ```
 
@@ -124,7 +144,7 @@ Similarly, *vol2surf()* will create a directory called "sub_surfaces" inside the
 
 ### Visualising and inspecting converted surfaces meshes
 
-For quality check, surfaces stored in "sub_surfaces" can also be plotted together on top of a subject's corresponding volume with the surf_qcplot() function. Because the surfaces are based on a volume rigidly coregistered to fsaverage, the surfaces will match a volume coregistered with subseg_getvol(), i.e. "sub_volumes/sub-[id]/ants_coreg/T1\_[template]\_rigid_coreg.nii.gz" (or any volume likewise coregistered to the template):
+For quality check, surfaces stored in "sub_surfaces" can also be plotted together on top of a subject's corresponding volume with the *surf_qcplot()* function. Because the surfaces are based on a volume rigidly coregistered to fsaverage, the surfaces will match a volume coregistered with *subseg_getvol()*, i.e. "sub_volumes/sub-[id]/ants_coreg/T1\_[template]\_rigid_coreg.nii.gz" (or any volume likewise coregistered to the template):
 
 ``` python
 from subcortexmesh import surf_qcplot
@@ -138,9 +158,9 @@ surf_qcplot(
 
 ![](figures/surf_qcplot.png)
 
-Since regions will have been inflated and smoothed by default in vol2surf() to minimise graphical artefacts (e.g. hanging sparse voxels, sharp mesh spikes), the boundaries naturally appear slightly wider than their original anatomy and overlapping. Note that because the surfaces are processed by SubCortexMesh entirely separately, the visual overlap has no effect on later metrics values. In any event, this can be run on surfaces produced with dilate_erode=False.
+Since regions will have been inflated and smoothed by default in *vol2surf()* to minimise graphical artefacts (e.g. hanging sparse voxels, sharp mesh spikes), the boundaries naturally appear slightly wider than their original anatomy and overlapping. Note that because the surfaces are processed by SubCortexMesh entirely separately, the visual overlap has no effect on later metrics values. In any event, this can be run on surfaces produced with dilate_erode=False.
 
-Optionally, autoqc_outliers() function helps quickly identify subject meshes that are outliers relatively to the cohort along five global heuristic shape features (volume, surface area, sphericity, elongation, symmetry). It returns a table stating for each subject and ROI, the number of features for which the ROI has been flagged as outlier (0-5).
+Optionally, *autoqc_outliers()* function helps quickly identify subject meshes that are outliers relatively to the cohort along five global heuristic shape features (volume, surface area, sphericity, elongation, symmetry). It returns a table stating for each subject and ROI, the number of features for which the ROI has been flagged as outlier (0-5).
 
 ``` python
 from subcortexmesh import surf_qcplot, autoqc_outliers
@@ -178,12 +198,14 @@ mesh_metrics(
   plot_projection=True, 
   native_meshes=True, 
   overwrite=True, 
-  silent=False)
+  silent=False,
+  #sub_list=['sub-01','sub-02']
+  )
 ```
 
-The mesh_metrics() function will create a "surface_metrics/" directory in the *outputdir*. The *native_meshes* argument gives the option to also save .vtk surface meshes in native space, containing the scalars for each metric.
+The *mesh_metrics()* function will create a "surface_metrics/" directory in the *outputdir*. The *native_meshes* argument gives the option to also save .vtk surface meshes in native space, containing the scalars for each metric.
 
-mesh_metrics() also saves summary statistics tables in each subject directory, for the native space meshes. E.g., surface_metrics/sub-xxx/surfarea_stats.txt:
+*mesh_metrics()* also saves summary statistics tables in each subject directory, for the native space meshes. E.g., surface_metrics/sub-xxx/surfarea_stats.txt:
 
 | label                | mean  | sd    | min   | max   | range | n_vert |
 |:---------------------|:------|:------|:------|:------|:------|:-------|
@@ -198,7 +220,7 @@ The plotting arguments are False by default and allow users to check the computa
 
 ### Merging all surfaces
 
-It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This can be done with the structural metrics (outputted by mesh_metrics()) and extracted CIFTI data (outputted by cifti_metrics()). This is what the following command accomplishes in a mesh_metrics() output, subject-per-subject:
+It is possible to treat all ROIs as one and merge their vertex-wise surface metrics into one big mesh. This can be done with the structural metrics (outputted by *mesh_metrics()*) and extracted CIFTI data (outputted by *cifti_metrics()*). This is what the following command accomplishes in a *mesh_metrics()* output, subject-per-subject:
 
 ``` python
 from subcortexmesh import merge_all
@@ -208,23 +230,25 @@ merge_all(
   template='fsaverage',
   plot_merged=True, 
   overwrite=False, 
-  silent=False)
+  silent=False,
+  #sub_list=['sub-01','sub-02']
+  )
 ```
-[version >1.0.0] Even if all subcortical regions have not been created, the merge_all() function will add missing surfaces filled with NaN values instead of the metric values.[^4]
+[version >1.0.0] Even if all subcortical regions have not been created, the *merge_all()* function will add missing surfaces filled with NaN values instead of the metric values.[^4]
 
-[^4]: If one subject has missing ROIs inside their merged mesh, slm_analysis() will not run on the missing ROIs' vertices in the statistical model.
+[^4]: If one subject has missing ROIs inside their merged mesh, *slm_analysis()* will not run on the missing ROIs' vertices in the statistical model.
 
-The merged mesh is saved in the surface_metrics/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls vis_merged(), a function which can also independently plot each mesh or .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
+The merged mesh is saved in the surface_metrics/ subject directories, e.g. allaseg_thickness.vtk for fsaverage based surfaces. The plotter lets you visualise the outcome of the merging (plot_merged calls *vis_merged()*, a function which can also independently plot each mesh or .vtk file). The 3D viewer has a slider to space out the regions to show internal parts:
 
 ![](figures/merged.png)
 
-While vis_merged() includes the 3D slider view, vis_merged_flat() writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, is laid out separately.
+While *vis_merged()* includes the 3D slider view, *vis_merged_flat()* writes a .png 2D grid-like view where each pair of ROI, in top and bottom views, is laid out separately.
 
 ### Statistical analyses
 
 Users can run statistical analyses on the surface-based metrics with any potential software that can work with .vtk meshes and read their metrics scalars. SubCortexMesh provides a wrapper for [BrainStat's SLM analysis tools](https://brainstat.readthedocs.io/en/master/python/tutorials/tutorial_1.html#python-tutorial1), which fit linear or linear mixed models with surface-based values.  
 
-The slm_analysis() function facilitates the process of collating surface data by reading scalars from every surface available with a (set of) selected region(s) and one metric, and appending them into a single numpy array (N subjects x V vertices). The collated meshes are ordered alphanumerically according to the subject IDs of the surface_metrics/ subfolders, so users need to make sure the order matches that of model/contrast variables (which contains behavioural/phenotypic variables to associate the surface metrics with).
+The *slm_analysis()* function facilitates the process of collating surface data by reading scalars from every surface available with a (set of) selected region(s) and one metric, and appending them into a single numpy array (N subjects x V vertices). The collated meshes are ordered alphanumerically according to the subject IDs of the surface_metrics/ subfolders, so users need to make sure the order matches that of model/contrast variables (which contains behavioural/phenotypic variables to associate the surface metrics with).
 
 The other arguments are that of the SLM function. Here is an example:
 
@@ -287,7 +311,7 @@ Options for the "stat" argument include:
 -   'p_rft' for the p-values filtered based on significance of RFT cluster-wise p-values (use threshold argument)
 -   'clusters' for the identified clusters
 
-The same model can be run to test the effect on a global merged surface produced by merge_all(). It can then be plotted in slm_plot(), via vis_merged()'s 3D slider view previously shown (mode='anatomical'), or via vis_merged_flat() for a 2D grid-like view (mode='flat'):
+The same model can be run to test the effect on a global merged surface produced by *merge_all()*. It can then be plotted in *slm_plot()*, via *vis_merged()*'s 3D slider view previously shown (mode='anatomical'), or via *vis_merged_flat()* for a 2D grid-like view (mode='flat'):
 
 ``` python
 slm_model_allaseg = slm_analysis(
