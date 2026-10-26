@@ -90,6 +90,7 @@ from subcortexmesh import subseg_getvol
 subseg_getvol(
   inputdir="FreeSurfer_sub_directory/", 
   outputdir="/my_outputdir/",
+  template="fsaverage" #for FreeSurfer outputs, "fslfirst" for FSL FIRST
   #toolboxdata="/user_path/subcortexmesh_data",
   overwrite=False, 
   silent=False,
