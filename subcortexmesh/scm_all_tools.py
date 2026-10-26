@@ -4,6 +4,7 @@
 from typing import Optional, Union, Sequence
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from subcortexmesh.template_data_fetch import template_data_fetch
 from subcortexmesh.subseg_getvol import subseg_getvol
 from subcortexmesh.vol2surf import vol2surf
 from subcortexmesh.mesh_metrics import mesh_metrics
@@ -187,6 +188,9 @@ def scm_all(
     sub_nthread : int
         The number of CPU threads to be allocated for each subject separately (default is 1). This only affects the volume coregistration stage. 
     """
+        
+    #template data is needed
+    toolboxdata=template_data_fetch(datapath=toolboxdata, template = template)
     
     #prepare outputdir
     os.makedirs(outputdir, exist_ok=True)
