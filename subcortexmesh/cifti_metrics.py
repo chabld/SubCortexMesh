@@ -15,7 +15,8 @@ from vtkmodules.util import numpy_support
 import pyvista as pv
 from subcortexmesh import template_data_fetch
 from subcortexmesh.mesh_metrics import print_stats, print_stats_atlas
-from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import distance_transform_edt, binary_erosion, binary_dilation
+from scipy.spatial import cKDTree
 from nibabel.processing import resample_from_to
 
 def cifti_metrics(
@@ -237,8 +238,13 @@ def cifti_metrics(
                 if not os.path.exists(out_path) or overwrite:
                     #get volume straight from the cifti coordinates
                     region_mask = vol_regions == regionlabel
+                    if not region_mask.any():
+                        continue #not going furhter if region not in CIFTI
+                    
                     region_vol = np.zeros(vol_shape, dtype=np.float32)
                     region_vol[tuple(vol_coords[region_mask].T)] = vol_values[region_mask]
+                    region_mask_vol = np.zeros(vol_shape, dtype=np.float32)
+                    region_mask_vol[tuple(vol_coords[region_mask].T)] = 1
                     
                     if not silent: 
                         print(f"   => {regionlabel}...")
@@ -257,7 +263,7 @@ def cifti_metrics(
                     region_vol_resampled_img = resample_from_to(region_vol_img, fsaverage_ref_img, order=0)
                     region_vol_resampled = np.asarray(region_vol_resampled_img.dataobj)
                     
-                    region_mask_img = nib.Nifti1Image((region_vol > 0).astype(np.float32), affine)
+                    region_mask_img = nib.Nifti1Image(region_mask_vol, affine)
                     region_mask_resampled_img = resample_from_to(region_mask_img, fsaverage_ref_img, order=0)
                     region_mask_resampled = np.asarray(region_mask_resampled_img.dataobj) > 0.5
                     
@@ -274,26 +280,18 @@ def cifti_metrics(
                     mesh = load_mesh(f"{toolboxdata}/template_data/fsaverage/surfaces/{regionlabel}.vtk")
                     
                     #flip Z for mesh and volume coord mismatch
-                    pts = numpy_support.vtk_to_numpy(mesh.GetPoints().GetData())  #vertex coord 
-                    vert_idx = np.round(pts).astype(int) #rounding to nearest integer converts vertex coords to voxel indices
-                    vert_idx[:, 2] = (region_shape[2] - 1) - vert_idx[:, 2] 
+                    pts = numpy_support.vtk_to_numpy(mesh.GetPoints().GetData()).astype(float)  #vertex coord 
+                    pts_to_align = pts.copy()
+                    pts_to_align[:, 2] = (region_shape[2] - 1) - pts_to_align[:, 2]
+                    
+                    #ICP alignment between mesh and volume (per-axis scale + translation fitted to the mask surface)
+                    pts_aligned, _, _ = _icp_scale_translate(pts_to_align, region_mask_resampled)
+                    
+                    #rounding to nearest integer converts vertex coords to voxel indices
+                    vert_idx = np.round(pts_aligned).astype(int)
                     vert_idx[:, 0] = np.clip(vert_idx[:, 0], 0, region_shape[0] - 1)
                     vert_idx[:, 1] = np.clip(vert_idx[:, 1], 0, region_shape[1] - 1)
                     vert_idx[:, 2] = np.clip(vert_idx[:, 2], 0, region_shape[2] - 1)
-                    
-                    #Get centroids to affine alignment between mesh and volumes
-                    #volume centroid is mean position of all labeled voxels/vertex coords
-                    nz = np.array(np.where(region_mask_resampled)).T  # (N, 3)
-                    vol_centroid = nz.mean(axis=0)
-                    mesh_centroid = vert_idx.mean(axis=0)
-                    #Offset to apply to vert_idx to align mesh toward volume
-                    offset = vol_centroid - mesh_centroid
-                    #shift vert_idx by offset before EDT lookup
-                    vert_idx_aligned = vert_idx + np.round(offset).astype(int)
-                    vert_idx_aligned[:, 0] = np.clip(vert_idx_aligned[:, 0], 0, region_shape[0] - 1)
-                    vert_idx_aligned[:, 1] = np.clip(vert_idx_aligned[:, 1], 0, region_shape[1] - 1)
-                    vert_idx_aligned[:, 2] = np.clip(vert_idx_aligned[:, 2], 0, region_shape[2] - 1)
-                    vert_idx=vert_idx_aligned
                     
                     #Projecting values using Euclidean Distance Transform (EDT): every vertex is assigned its closest 
                     #voxel equivalent
@@ -320,6 +318,7 @@ def cifti_metrics(
                         region_vol_flipped = np.flip(region_vol, axis=2).copy() #flip Z as in previous code
                         vol = pv.ImageData()
                         vol.dimensions = np.array(region_shape) + 1
+                        vol.origin = (-0.5, -0.5, -0.5)   # voxel centers on integer indices, like the mesh
                         vol.cell_data[metric] = region_vol_flipped.flatten(order="F")
                         
                         #remove back ground voxels using the mask
@@ -334,7 +333,8 @@ def cifti_metrics(
                         ]
                         
                         #make plot
-                        mesh_pv = pv.wrap(mesh)
+                        mesh_pv = pv.wrap(mesh).copy(deep=True)  #copy so the saved mesh keeps template coords
+                        mesh_pv.points = np.c_[pts_aligned[:, 0], pts_aligned[:, 1], (region_shape[2] - 1) - pts_aligned[:, 2]]
                         plotter = pv.Plotter()
                         
                         region_surf = vol_thresh.extract_surface(algorithm='dataset_surface')
@@ -384,3 +384,40 @@ def cifti_metrics(
     
     if not silent: 
             print(f"Surface metrics stored to {outputdir}/surface_metrics_cifti/")
+
+
+#######################################################################################
+############################Helpers for alignment######################################
+
+#This transformer estimates the scale of the mesh and shift it so it sit best on the volume’s surface, 
+#via nearest neighbour search (iterative closest point, ICP)
+def _icp_scale_translate(pts, mask, n_iter=50):
+    #get the outline/layer masks of eroded volume and dilated volume 
+    #(will get coords of what is in between as it's where the mesh should align)
+    inner = mask & ~binary_erosion(mask)
+    outer = binary_dilation(mask) & ~mask
+    tgt = np.argwhere(inner | outer).astype(float) #get voxel coordinates from the mask
+    
+    #ICP with a constrained transform (per-axis scale + translation), v * s + t
+    tree = cKDTree(tgt) #get simple spatial points to locate for nearest neighbor search
+    s = np.ones(3) #scale per axis
+    pts_mean = pts.mean(axis=0) #mesh centroid: average coord per axis across all vertices
+    t = np.argwhere(mask).mean(axis=0) - pts_mean #mask centroid - mesh centroid, giving translation values
+    for _ in range(n_iter): #for each run, find closer and closer neighbors until it converges (only needs very small scaling)
+        _, idx = tree.query(pts * s + t) 
+        m = tgt[idx]
+        s_new = np.ones(3)
+        for ax in range(3):
+            vc = pts[:, ax] - pts_mean[ax] #vertices distance from centroid
+            mc = m[:, ax] - m[:, ax].mean() #target neighbours distance from their own centroid
+            denom = (vc ** 2).sum() #sum of square distances
+            if denom > 0: #if distance is found at all, find how much distance should be scaled based on the target
+                scale_bounds=(0.8, 1.2) #no more than 20% change in scaling, adds ceiling/flooring
+                s_new[ax] = np.clip((vc * mc).sum() / denom, *scale_bounds)
+        t_new = m.mean(axis=0) - s_new * pts_mean
+        #stops when the largest change in scale/translation gets below 1e-4 (no need for more iterations)
+        converged = np.abs(s_new - s).max() < 1e-4 and np.abs(t_new - t).max() < 1e-4
+        s, t = s_new, t_new
+        if converged:
+            break
+    return pts * s + t, s, t
