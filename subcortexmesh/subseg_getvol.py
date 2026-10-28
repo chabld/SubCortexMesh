@@ -33,7 +33,7 @@ def subseg_getvol(
     segmentation volumes to their respective template space  (fsaverage/MNI305 for FreeSurfer, 
     MNI152 for FSL), and then extracts each subcortical region-of-interest separately. 
     
-    T1 volumes are required for the coregistration, stored as [sub-ID]/mri/T1.mgz for 
+    T1 volumes are required for the coregistration, stored as [sub-ID]/mri/orig.mgz for 
     FreeSurfer and expected to be stored in the same "inputdir" path for FSL FIRST: 
     the function will search for files containing the sub-ID and the "*T1w.nii*" pattern for 
     each subject.
@@ -171,7 +171,7 @@ def subseg_getvol(
             #For FreeSurfer, T1.mgz converted to nii.gz as ANTS uses those
             if template=='fsaverage':
                 nib.save(nib.load(f"{inputdir}/{subid}/mri/aseg.mgz"), f"{antsdir}/aseg.nii.gz")
-                nib.save(nib.load(f"{inputdir}/{subid}/mri/T1.mgz"), f"{antsdir}/T1.nii.gz")
+                nib.save(nib.load(f"{inputdir}/{subid}/mri/orig.mgz"), f"{antsdir}/T1.nii.gz")
                 subvol=f"{antsdir}/aseg.nii.gz"
                 T1vol=f"{antsdir}/T1.nii.gz"
                 #template imported from 7.4.1's $FREESURFER_HOME/subjects/fsaverage/mri/T1.mgz
