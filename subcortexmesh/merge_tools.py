@@ -125,7 +125,9 @@ def merge_all(
         subindex=subindex+1
         
         #unique tmp file to avoid parallel loop conflicts
-        fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_merge.tmp")
+        lockdir = os.path.join(tempfile.gettempdir(), "subcortexmesh_processes")
+        os.makedirs(lockdir, exist_ok=True)
+        fname = os.path.join(lockdir, f"{subid}_isrunning_merge.tmp")
         if os.path.exists(fname): #if exists already, and tmp file is younger than 1h, skip subject
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
             if tmp_lifetime < 1:

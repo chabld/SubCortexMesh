@@ -1,8 +1,9 @@
 Updates
 =========
 
-V1.3.0 (TBC)
+V1.3.0
 --------------
+*30-10-2026*
 
 NEW FEATURES
 ~~~~~~~~~~~~
@@ -13,6 +14,7 @@ NEW FEATURES
 - Improved projection and alignment inside `cifti_metrics()`, now the mesh is scaled to the valume for the value assignment rather than simply shifted in space. This does not affect the coordinates of the outputted surfaces.
 - `autoqc_outliers()` now provides the `outputdir` option to give a path where the table will be automatically saved as "autoqc_outliers.csv".
 - `subseg_getvol()`, `vol2surf()`, `mesh_metrics()`, `cifti_metrics()` and `merge_all()` now all have a `sub_list` argument, which allow users to specify which subjects to process.
+- Parallel tmp files now stored into the subdirectory `tempdir`/subcortexmesh_processes for easier clearing. 
 
 FIXES
 ~~~~~
@@ -20,7 +22,7 @@ FIXES
 
 v1.2.2 
 --------------
-(17-09-2026)
+*17-09-2026*
 
 NEW FEATURES
 ~~~~~~~~~~~~
@@ -34,7 +36,7 @@ FIXES
 
 v1.2.1
 --------------
-(02-09-2026)
+*02-09-2026*
 
 FIXES
 ~~~~~
@@ -43,7 +45,7 @@ FIXES
 
 v1.2.0
 --------------
-(01-09-2026)
+*01-09-2026* 
 
 NEW FEATURES
 ~~~~~~~~~~~~
@@ -55,7 +57,7 @@ FIXES
 
 v1.1.0
 --------------
-(31-07-2026)
+*31-07-2026*
 
 NEW FEATURES
 ~~~~~~~~~~~~

@@ -97,7 +97,9 @@ def vol2surf(
         subindex=subindex+1
         
         #unique tmp file to avoid parallel loop conflicts
-        fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_surf.tmp")
+        lockdir = os.path.join(tempfile.gettempdir(), "subcortexmesh_processes")
+        os.makedirs(lockdir, exist_ok=True)
+        fname = os.path.join(lockdir, f"{subid}_isrunning_surf.tmp")
         #if exists already, and tmp file is younger than 1h, skip subject
         if os.path.exists(fname): 
             tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600

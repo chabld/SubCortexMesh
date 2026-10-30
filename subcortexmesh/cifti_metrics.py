@@ -149,6 +149,8 @@ def cifti_metrics(
         if not sub_files:
             if not silent: 
                 print(f"No files matching dscalar found.")
+            
+            continue
         
         #parser to get the right potential BIDS sub-divisions in a file
         def extract_bids_key(filename, keys=("ses", "task", "acq", "ce", "rec", "dir", "run")):
@@ -183,7 +185,9 @@ def cifti_metrics(
                 os.makedirs(subdir_spec, exist_ok=True)
             
             #unique tmp file to avoid parallel loop conflicts
-            fname = os.path.join(tempfile.gettempdir(), f"{os.path.basename(subdir_spec)}_isrunning_cifti.tmp")
+            lockdir = os.path.join(tempfile.gettempdir(), "subcortexmesh_processes")
+            os.makedirs(lockdir, exist_ok=True)
+            fname = os.path.join(lockdir, f"{os.path.basename(subdir_spec)}_isrunning_cifti.tmp")
             #if exists already, and tmp file is younger than 1h, skip subject
             if os.path.exists(fname): 
                 tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600

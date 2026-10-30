@@ -83,9 +83,9 @@ def surf_qcplot(
         default_mesh=0 
         
     surfaces = []
-    for fname in surf_files:
+    for surfname in surf_files:
         reader = vtk.vtkPolyDataReader()
-        reader.SetFileName(os.path.join(surfdir, fname))
+        reader.SetFileName(os.path.join(surfdir, surfname))
         reader.Update()
         #downsampling vertex count to make it fasters
         decimator = vtk.vtkQuadricDecimation()
@@ -340,10 +340,10 @@ def surf_qcplot(
     #Add subcortical legend on the right side
     legend_handles = []
     legend_labels = []
-    for fname, color in zip(surf_files, mesh_colors):
+    for surfname, color in zip(surf_files, mesh_colors):
         handle = mplpyplot.Line2D([0],[0], color=color, marker='.', linestyle='', markersize=10)
         legend_handles.append(handle)
-        legend_labels.append(os.path.splitext(fname)[0])
+        legend_labels.append(os.path.splitext(surfname)[0])
     
     fig.legend(legend_handles, legend_labels,
             loc='center left', bbox_to_anchor=(0.74, 0.47),
