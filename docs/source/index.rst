@@ -6,6 +6,7 @@
    :caption: About
    
    self
+   qc
    atlases
    cifti
    changelog

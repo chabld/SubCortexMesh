@@ -29,6 +29,7 @@ def cifti_metrics(
     toolboxdata: Optional[Union[str, Path]] = None,
     plot_projection: bool = False,
     cmap: str = 'jet',
+    keep_volumes: bool = False,
     overwrite: bool = True,
     silent: bool = False,
     sub_list: Optional[Sequence[str]] = None):
@@ -65,6 +66,10 @@ def cifti_metrics(
         Whether to plot the voxel-space values next to the template-space mesh the values are projected to. Default is False.
     cmap: str
         Name of the color map to be assigned to the volume, as listed in matplotlib's colormaps. Default is "jet".
+    keep_volumes: bool, optional
+        Whether to save the volumes extracted and resampled to fsaverage space before they are 
+        projected to the surface template. Default is False. overwrite must be True for this 
+        process to be accounted for. 
     overwrite : bool
         Whether files are to be overwritten or skipped if already in outputdir. 
         Default is True.
@@ -130,19 +135,6 @@ def cifti_metrics(
     for subid in sub_list:
         subindex=subindex+1
         
-        #unique tmp file to avoid parallel loop conflicts
-        fname = os.path.join(tempfile.gettempdir(), f"{subid}_isrunning_cifti.tmp")
-        #if exists already, and tmp file is younger than 1h, skip subject
-        if os.path.exists(fname): 
-            tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
-            if tmp_lifetime < 1:
-                if not silent:
-                    print(f"{subid} already running (tmp file: {Path(fname).as_posix()}).") 
-                continue
-        #creates tmp if loop wasn't skipped
-        with open(fname, "w"):
-            pass
-        
         if not silent: 
             print(f"Extracting CIFTI data for {subid}... [{subindex}/{len(sub_list)}]")
         
@@ -189,6 +181,19 @@ def cifti_metrics(
                 sub_ses=subid
                 subdir_spec=os.path.join(outputdir,"surface_metrics_cifti",subid) 
                 os.makedirs(subdir_spec, exist_ok=True)
+            
+            #unique tmp file to avoid parallel loop conflicts
+            fname = os.path.join(tempfile.gettempdir(), f"{os.path.basename(subdir_spec)}_isrunning_cifti.tmp")
+            #if exists already, and tmp file is younger than 1h, skip subject
+            if os.path.exists(fname): 
+                tmp_lifetime = (time.time() - os.path.getmtime(fname)) / 3600
+                if tmp_lifetime < 1:
+                    if not silent:
+                        print(f"{os.path.basename(subdir_spec)} already running (tmp file: {Path(fname).as_posix()}).") 
+                    continue
+            #creates tmp if loop wasn't skipped
+            with open(fname, "w"):
+                pass
             
             ###############################################################################
             ###############################FETCHING CIFTI DATA#############################
@@ -374,6 +379,18 @@ def cifti_metrics(
                     writer.SetFileName(out_path)
                     writer.SetInputData(mesh)
                     _ = writer.Write()
+                    
+                    #save volume if wanted
+                    if keep_volumes:
+                        native_vol_path = os.path.join(subdir_spec, "volumes")
+                        os.makedirs(native_vol_path, exist_ok=True)
+                        if not silent:
+                            print(f"   Saving volume to {native_vol_path}/...")
+                        #values on fsaverage's grid (the one the mesh is based upon), NaN outside the region
+                        #so that real zeros of the metric are not confused with background
+                        vol_to_save = np.where(region_mask_resampled, region_vol, np.nan).astype(np.float32)
+                        subvol = f"{native_vol_path}/{regionlabel}_{metric}_vol.nii.gz"
+                        nib.save(nib.Nifti1Image(vol_to_save, region_vol_resampled_img.affine), subvol)
                 
                 else:
                     if not silent: 

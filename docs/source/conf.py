@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.abspath('../..')) #sphinx access
 project = 'SubCortexMesh'
 copyright = '2026, Cognitive and Brain Health Laboratory - Nanyang Technological University'
 author = 'Charly H. A. Billaud, Nicolas P.M. Lavarde, Junhong Yu'
-release = '1.2.2'
-version = '1.2.2'
+release = '1.3.0'
+version = '1.3.0'
 
 # -- General configuration ---------------------------------------------------
 extensions = [
@@ -43,6 +43,7 @@ autodoc_mock_imports = [
     'nibabel',
     'scipy',
     'sklearn',
+    'tqdm',
     'brainstat',
     'brainspace',
     'requests',

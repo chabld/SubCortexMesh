@@ -10,7 +10,7 @@ from subcortexmesh.vol2surf import vol2surf
 from subcortexmesh.mesh_metrics import mesh_metrics
 from subcortexmesh.merge_tools import merge_all
 from subcortexmesh.cifti_metrics import cifti_metrics
-from subcortexmesh.qc_tools import autoqc_outliers
+from subcortexmesh.qc_tools import autoqc_outliers, visual_qc_report
 from tqdm import tqdm
 import time
 import multiprocessing as mp
@@ -19,79 +19,10 @@ import traceback
 from functools import partial
 import os
 import re
+import pandas as pd
 
 #####################################################################################
-##############################Jobs to be ran in parallel#############################
-
-#For structural data (FreeSurfer, FSL)
-def _struct_job(subid, inputdir, outputdir, template, toolboxdata, roilabel,
-                dilate_erode, shape_smooth, metric, metric_smooth,
-                native_meshes, overwrite, silent):
-    os.makedirs(f"{outputdir}/logs/", exist_ok=True)
-    with open(f"{outputdir}/logs/job_{subid}.txt", "w") as f, contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
-        try:
-            if not silent:
-                print(f"Starting job for {subid}")
-            
-            subseg_getvol(inputdir=inputdir, outputdir=outputdir, template=template,
-                        toolboxdata=toolboxdata, overwrite=overwrite,
-                        sub_list=subid)
-            
-            vol2surf(inputdir=f"{outputdir}/sub_volumes", outputdir=outputdir,
-                    roilabel=roilabel, dilate_erode=dilate_erode,
-                    smoothing=shape_smooth, overwrite=overwrite,
-                    sub_list=subid)
-            
-            mesh_metrics(inputdir=f"{outputdir}/sub_surfaces", outputdir=outputdir,
-                        template=template, toolboxdata=toolboxdata, metric=metric,
-                        roilabel=roilabel, smooth=metric_smooth,
-                        native_meshes=native_meshes, overwrite=overwrite,
-                        sub_list=subid)
-            
-            merge_all(inputdir=f"{outputdir}/surface_metrics/", template=template,
-                      toolboxdata=toolboxdata, overwrite=overwrite, sub_list=subid)
-            
-            if not silent:
-                print(f"Finished job {subid}")
-            return (subid, None)
-        except Exception:
-            traceback.print_exc(file=f)
-            return (subid, "failed")
-
-#For CIFTI data (ASLprep, HCP pipeline etc.)
-def _cifti_job(subid, inputdir, outputdir, cifti_dscalar, metric, roilabel,
-               toolboxdata, overwrite, silent):
-    os.makedirs(f"{outputdir}/logs/", exist_ok=True)
-    with open(f"{outputdir}/logs/job_{subid}.txt", "w") as f, contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
-        try:
-            if not silent:
-                print(f"Starting job {subid}")
-            
-            cifti_metrics(dscalar=cifti_dscalar, metric=metric, inputdir=inputdir,
-                        outputdir=outputdir, roilabel=roilabel,
-                        toolboxdata=toolboxdata, overwrite=overwrite,
-                        sub_list=subid)
-                        
-            #because cifti outputs BIDS levels as subject directory, identify those containing the subid
-            cifti_sub_list = [
-                d for d in os.listdir(inputdir)
-                if os.path.isdir(os.path.join(inputdir, d))
-                and subid in d
-            ]
-            merge_all(inputdir=f"{outputdir}/surface_metrics_cifti/", metric=metric,
-                      template='fsaverage', toolboxdata=toolboxdata,
-                      overwrite=overwrite, sub_list=cifti_sub_list)
-                    
-            if not silent:
-                print(f"Finished job {subid}")
-            return (subid, None)
-        except Exception:
-            traceback.print_exc(file=f)
-            return (subid, "failed")
-        
-
-#####################################################################################
-##############################Full pipeline function#################################
+########################Whole SubCortexMesh pipeline#################################
 
 def scm_all(
     inputdir: Union[str, Path],
@@ -105,9 +36,15 @@ def scm_all(
     shape_smooth: int = 15,
     metric: Union[str, Sequence[str]] = ['thickness', 'curvature', 'surfarea'],
     metric_smooth: tuple[int, int, int] = (0, 5, 5),
-    native_meshes: bool = False,
-    autoqc_n_sd: float = 2, 
+    native_meshes: bool = True,
     cifti_dscalar: Optional[str] = None, 
+    qc_n_sd: float = 2, 
+    qc_outliers: Optional[Union[str, Path, pd.DataFrame]] = None,
+    qc_outlier_threshold: int = 3,
+    qc_report_metric_proj: Union[str, Sequence[str]] = None,
+    qc_report_rows: int = None,
+    qc_report_cols: int = None,
+    qc_report_cmap: str = 'jet',
     overwrite: bool = False,
     silent: bool = False,
     total_nthread: int = 1,
@@ -125,8 +62,9 @@ def scm_all(
     - Reporting surface shape outliers (autoqc_outliers() function): saves a "autoqc_outliers.csv" sheet to flag, for each subject and subcortical region, whether they deviate from the cohort mean across five heuristic graphical features (volume, surface area, sphericity, elongation and symmetry).
     - Computing surface-based metrics (mesh_metrics() function): extracts thickness, curvature and surface area metrics from the subcortical surfaces outputted, and projects the metrics in template space.  
     - Merging all surfaces (merge_all() function): creates a new mesh merging all subcortical meshes outputted by mesh_metrics() in their corresponding template, for available metrics separately.
+    - Generating a visual report for every subjects in a figures/ directory, a .html page which allows users to visualise, for each subject and region: the volume to surface conversion, medial curve generation, and metrics projection to their respective template.
     
-    For CIFTI data, which only requires two later stages of the worklow, the cifti_metrics() and merge_all() functions are run. cifti_metrics() extracts CIFTI subcortical grayordinates and projects their values to the fsaverage surface template space. 
+    For CIFTI data, which only requires metrics and merging stages of the worklow, the cifti_metrics() and merge_all() functions are run. cifti_metrics() extracts CIFTI subcortical grayordinates and projects their values to the fsaverage surface template space. 
     
     Parallel processing: scm_all() processes one subject per parallel process, each limited to the number of threads specified in sub_nthread (affects the volume coregistration). When scm_all() is run from a script file, the function must be placed after an `if __name__ == "__main__":` which makes sure Python won't raise a RuntimeError about starting new processes before bootstrapping has finished. That is not needed in an interactive session or Jupyter notebook.
     
@@ -146,7 +84,8 @@ def scm_all(
         found will be included.
     template : str
         The name of the template the surfaces are supposed to be matching to. For FreeSurfer
-        outputs, it is 'fsaverage'. For FSL FIRST, it is 'fslfirst'.
+        outputs, it is 'fsaverage'. For FSL FIRST, it is 'fslfirst'. 'fsaverage' for
+        CIFTI data.
     toolboxdata : str, Path, optional
         The path of the "subcortexmesh_data" package data directory. The  default path 
         is assumed to be the user's home directory (pathlib's Path.home()). Users will 
@@ -171,13 +110,35 @@ def scm_all(
         always three floats corresponding to that order, even if some metrics are not 
         selected in the "metric" argument.
     native_meshes : bool, optional
-        Whether to save the meshes computed in subject space before they are projected 
-        to template space (they will contain one scalar for each metric). Default is 
-        False. overwrite must be True for this process to be accounted for.
-    autoqc_n_sd : float
-        The number of standard deviations from the cohort mean to define subjects as outliers, for each graphical feature value. Default is 2.
+        This option is needed to print a quality check visual report. Whether to save 
+        the meshes computed in subject space before they are projected to template space 
+        (they will contain one scalar for each metric). Default is True. overwrite must 
+        be True for this process to be accounted for.
     cifti_dscalar : str
         Only for CIFTI data processing: all non cifti-related arguments will be ignored if not None. The specific pattern of the CIFTI file names (.dscalar.nii). These files names differ with the values and processing pipelines, so a suffix e.g "_den-91k_stat-reho_boldmap.dscalar" specifies reho maps are to be extracted. Also requires one metric name (e.g., "reho") specified in the metric argument. The function will not extract multiple values ('reho', 'alff', 'cbf' etc.) so make sure the pattern contains one. Wildcards ".*" are allowed if someone wants to specify a BIDS pattern (e.g., ".*ses-2.*rest.*_den-91k_stat-reho_boldmap.dscalar" ).
+    qc_n_sd : float
+        The number of standard deviations from the cohort mean to define subjects as outliers, for each graphical feature value. Default is 2. Used by autoqc_outliers().
+    qc_outliers : str, Path, DataFrame, optional
+        The table flagging outliers per subject and region, outputted by autoqc_outliers(): a 
+        DataFrame object or the path to the .csv. Outliers will be flagged in the visual
+        report if given. Default is "inputdir/qc/autoqc_outliers.csv" if present. Used by
+        visual_qc_report().
+    qc_outlier_threshold : int
+        The minimum number of shape features a region must be an outlier in
+        to be flagged (see autoqc_outliers() for more details on the features). 
+        Default is 3. Used by visual_qc_report().
+    qc_report_metric_proj: str, Sequence
+        The name(s) of the metric(s) to be plotted in the visual report. If several are given, 
+        each region has one image per metric, and the metric is written next to its title. By default,
+        the first measure named inside the metric argument. Used by visual_qc_report().
+    qc_report_columns : int
+        Number of image columns in the page.  Default is 3 for FreeSurfer/FSL
+        processing output, 4 for CIFTI output.
+    qc_report_rows : int
+        Number of image rows in the page. Default is 3 for FreeSurfer/FSL
+        processing output, 2 for CIFTI output.
+    qc_report_cmap : str
+        Color map for the metric surfaces in the visual report. Default is "jet_r".
     overwrite : bool
         Whether files are to be overwritten or skipped if already in outputdir. 
         Default is False.
@@ -244,6 +205,9 @@ def scm_all(
     if not silent:
         print(f"{total_nthread} CPU threads set: each subject will be assigned {sub_nthread} CPU threads, {nworkers} subject(s) at a time.")
     
+    #prepare logs folder
+    os.makedirs(f"{outputdir}/logs/", exist_ok=True)
+    
     try:
         #run one subject per worker
         results = []
@@ -256,7 +220,7 @@ def scm_all(
                 try:
                     res = fut.result()
                 except Exception as e:  #worker died, not a Python error in the job
-                    res = (subid, f"worker crashed: {type(e).__name__}")
+                    res = (subid, f"worker crashed: {type(e).__name__}: {e}")
                 results.append(res)
     finally:
         for k, v in old_env.items():
@@ -265,16 +229,25 @@ def scm_all(
             else:
                 os.environ[k] = v
     
-    failed = [s for s, status in results if status]
+    failed = [(s, status) for s, status in results if status]
     if failed:
-        print(f"{len(failed)} subject(s) failed, see {outputdir}/logs/: {failed}")
-     
-    #####   
+        print(f"{len(failed)} subject(s) failed, see {outputdir}/logs/:")
+        for s, status in failed:
+            print(f"  {s}: {status}")
+        if all("BrokenProcessPool" in str(status) for _, status in failed):
+            print("All workers crashed before starting. Try restarting the Python session. If it persists, "
+                  "run scm_all() from a script (under an `if __name__ == \"__main__\":` condition) "
+                  "to see the worker's error.")
+    
+    ####################################   
+    ################QC##################
     #outliers report (structural only, since CIFTI data is all on the same template surface)
-    if cifti_dscalar is None:
+    sub_surf = f"{outputdir}/sub_surfaces/" #only exists if vol2surf ran at all
+    if cifti_dscalar is None and os.path.isdir(sub_surf):
         flag_df=autoqc_outliers(inputdir=f"{outputdir}/sub_surfaces/",
-                                n_sd=autoqc_n_sd, outputdir=f"{outputdir}/qc/",
-                                silent=True)
+                                n_sd=qc_n_sd, 
+                                outputdir=f"{outputdir}/qc/",
+                                silent=silent)
         if not silent:
             for subid in flag_df.index:
                 flagged_structures = [c for c in flag_df.columns if flag_df.loc[subid, c] >= 3]
@@ -282,6 +255,39 @@ def scm_all(
                     continue
                 print(f"Outlier detected for {subid}: {flagged_structures}")
     
+    
+    if isinstance(metric, str):
+        metric=[metric]
+    if qc_report_metric_proj is None:
+        qc_report_metric_proj=metric[0]
+    
+    ####################################   
+    ###########Visual report############
+    if cifti_dscalar is None:
+        #FreeSurfer/FSL FIRST
+        visual_qc_report(inputdir=outputdir, 
+                            template=template,
+                            metric_proj=qc_report_metric_proj,
+                            outliers=qc_outliers,
+                            outlier_threshold=qc_outlier_threshold,
+                            columns=qc_report_cols,
+                            rows=qc_report_rows,
+                            cmap=qc_report_cmap,
+                            overwrite=overwrite,
+                            silent=silent
+                            )
+    else:
+        visual_qc_report(inputdir=outputdir, 
+                    template=template,
+                    metric_proj=qc_report_metric_proj,
+                    columns=qc_report_cols,
+                    rows=qc_report_rows,
+                    cmap=qc_report_cmap,
+                    overwrite=overwrite,
+                    silent=silent,
+                    cifti=True
+                    )
+        
     #print total duration
     if not silent:
         hours, rem = divmod(int(time.perf_counter() - start_time), 3600)
@@ -294,3 +300,76 @@ def scm_all(
             duration = f"{seconds}s"
         print(f"scm_all() completed in {duration}.")
                         
+#####################################################################################
+##############################Jobs to be ran in parallel#############################
+
+#For structural data (FreeSurfer, FSL)
+def _struct_job(subid, inputdir, outputdir, template, toolboxdata, roilabel,
+                dilate_erode, shape_smooth, metric, metric_smooth,
+                native_meshes, overwrite, silent):
+    
+    with open(f"{outputdir}/logs/job_{subid}.txt", "w") as f, contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+        try:
+            if not silent:
+                print(f"Starting job for {subid}")
+            
+            subseg_getvol(inputdir=inputdir, outputdir=outputdir, template=template,
+                        toolboxdata=toolboxdata, overwrite=overwrite,
+                        sub_list=subid)
+                        
+            #subject id reformatted as in subseg_getvol (limited to sub-xxx) for SCM
+            pattern = r'(sub-[\w-]+)'
+            subid=re.search(pattern, subid).group(1) 
+            
+            vol2surf(inputdir=f"{outputdir}/sub_volumes", outputdir=outputdir,
+                    roilabel=roilabel, dilate_erode=dilate_erode,
+                    smoothing=shape_smooth, overwrite=overwrite,
+                    sub_list=subid)
+            
+            mesh_metrics(inputdir=f"{outputdir}/sub_surfaces", outputdir=outputdir,
+                        template=template, toolboxdata=toolboxdata, metric=metric,
+                        roilabel=roilabel, smooth=metric_smooth,
+                        native_meshes=native_meshes, overwrite=overwrite,
+                        sub_list=subid)
+            
+            merge_all(inputdir=f"{outputdir}/surface_metrics/", template=template,
+                      toolboxdata=toolboxdata, overwrite=overwrite, sub_list=subid)
+            
+            if not silent:
+                print(f"Finished job {subid}")
+            return (subid, None)
+        except Exception:
+            traceback.print_exc(file=f)
+            return (subid, "failed")
+
+#For CIFTI data (ASLprep, HCP pipeline etc.)
+def _cifti_job(subid, inputdir, outputdir, cifti_dscalar, metric, roilabel,
+               toolboxdata, overwrite, silent):
+    os.makedirs(f"{outputdir}/logs/", exist_ok=True)
+    with open(f"{outputdir}/logs/job_{subid}.txt", "w") as f, contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+        try:
+            if not silent:
+                print(f"Starting job {subid}")
+            
+            cifti_metrics(dscalar=cifti_dscalar, metric=metric, inputdir=inputdir,
+                        outputdir=outputdir, roilabel=roilabel,
+                        toolboxdata=toolboxdata, overwrite=overwrite,
+                        sub_list=subid, keep_volumes=True)
+                        
+            #because cifti outputs BIDS levels as subject directory, identify those containing the subid
+            cifti_sub_list = [
+                d for d in os.listdir(os.path.join(outputdir,"surface_metrics_cifti"))
+                if os.path.isdir(os.path.join(outputdir,"surface_metrics_cifti",d))
+                and subid in d
+            ]
+            merge_all(inputdir=f"{outputdir}/surface_metrics_cifti/", metric=metric,
+                      template='fsaverage', toolboxdata=toolboxdata,
+                      overwrite=overwrite, sub_list=cifti_sub_list)
+                    
+            if not silent:
+                print(f"Finished job {subid}")
+            return (subid, None)
+        except Exception:
+            traceback.print_exc(file=f)
+            return (subid, "failed")
+        
