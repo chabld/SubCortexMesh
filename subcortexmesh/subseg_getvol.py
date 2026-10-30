@@ -28,14 +28,14 @@ def subseg_getvol(
     
     This function reads through subjects of a FreeSurfer or FSL FIRST output preprocessing 
     directory and identifies subcortical segmentation volumes. Typically, such volumes are 
-    "aseg.mgz" for FreeSurfer, and "*all_fast_firstseg" for FSL FIRST (plus, if applicable, 
-    "*Cereb_first.nii.gz"). For each subject, subseg_getvol() uses antspy to coregister the 
+    "aseg.mgz" for FreeSurfer, and ``*all_fast_firstseg`` for FSL FIRST (plus, if applicable, 
+    ``*Cereb_first.nii.gz``). For each subject, subseg_getvol() uses antspy to coregister the 
     segmentation volumes to their respective template space  (fsaverage/MNI305 for FreeSurfer, 
     MNI152 for FSL), and then extracts each subcortical region-of-interest separately. 
     
     T1 volumes are required for the coregistration, stored as [sub-ID]/mri/orig.mgz for 
     FreeSurfer and expected to be stored in the same "inputdir" path for FSL FIRST: 
-    the function will search for files containing the sub-ID and the "*T1w.nii*" pattern for 
+    the function will search for files containing the sub-ID and the ``*T1w.nii*`` pattern for 
     each subject.
     
     Parallel processes: to avoid conflicts, subjects will be skipped if a "isrunning" tmp 
@@ -44,8 +44,8 @@ def subseg_getvol(
     the tmp manually to rerun a subject before the 1 hour (its path is printed when flagged). 
     
     Note for (optional) FSL cerebellar segmentation: the cerebella need to be created inside 
-    the same output directory as run_first_all's, naming them "*R_Cereb_first" and 
-    "*L_Cereb_first". It can be done as follows (do the same for `L_Cereb`):
+    the same output directory as run_first_all's, naming them ``*R_Cereb_first`` and 
+    ``*L_Cereb_first``. It can be done as follows (do the same for `L_Cereb`):
     
     .. code-block:: bash
         

@@ -26,10 +26,6 @@ extensions = [
 default_dark_mode = True #default to dark
 html_css_files = ["custom.css"] #needed custom css to move lightswitch button
 
-myst_enable_extensions = [
-    "footnote",
-]
-
 autodoc_mock_imports = [
     'ants',
     'antspyx',
@@ -41,6 +37,7 @@ autodoc_mock_imports = [
     'matplotlib',
     'mpl_toolkits',
     'nibabel',
+    'PIL',
     'scipy',
     'sklearn',
     'tqdm',
