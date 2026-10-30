@@ -15,12 +15,11 @@ def template_data_fetch(
 
     Parameters
     ----------
-    datapath : str, Path, optional
-        Directory in which to download the template data.  Default is the user's home 
-        directory (pathlib's Path.home()). 
     template: str
         The name of the template the surfaces to be used are from. For FreeSurfer
         outputs, it is 'fsaverage'. For FSL FIRST, it is 'fslfirst'.
+    datapath : str, Path, optional
+        Directory in which to the template data is present or to be downloaded.  Default is the user's home directory (pathlib's Path.home()). 
     
     Returns
     -------
