@@ -87,7 +87,7 @@ def slm_analysis(
     smooth : float, optional
         The full-maximum half-width (FMHW) value that will be applied for smoothing 
         of the surface-based measure along the surface. Default is None.
-    sub_list: str, Sequence
+    sub_list: str, Sequence, optional
         An optional list of subject IDs to determine whose surface is to be included in the
         analysis. Surfaces whose path does not contain a subject ID from the list will be 
         ignored. If not specified, all surfaces found will be included. Note that for 
