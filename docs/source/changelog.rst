@@ -3,7 +3,7 @@ Updates
 
 V1.3.0
 --------------
-*30-10-2026*
+*04-11-2026*
 
 NEW FEATURES
 ~~~~~~~~~~~~
@@ -19,6 +19,7 @@ NEW FEATURES
 FIXES
 ~~~~~
 - For FreeSurfer outputs, `subseg_getvol()` now rigidly coregisters the subject's orig.mgz rather than their T1.mgz (which is the same as the former with additional intensity normalization, but remains spatially equal). The reason is that `surf_qcplot()` later uses the coregistered T1, but the intensity normalization made subcortical structure not appear accurate in the plot (e.g. the thalamus sharing similar intensity with white matter).
+- Fix for BrainStat and numpy >2.0 compatibily (np.inf instead of np.Inf error)
 
 v1.2.2 
 --------------
