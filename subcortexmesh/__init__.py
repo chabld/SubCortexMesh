@@ -1,5 +1,8 @@
 """Subcortical surface-based analysis toolbox."""
 
+import numpy as np
+if not hasattr(np, "Inf"):
+    np.Inf = np.inf #monkey patch as old BrainStat is incompatible with numpy 2.0
 from subcortexmesh.template_data_fetch import (template_data_fetch)
 from subcortexmesh.subseg_getvol import (subseg_getvol)
 from subcortexmesh.vol2surf import (vol2surf)
