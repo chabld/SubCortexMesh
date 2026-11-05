@@ -11,6 +11,7 @@ from subcortexmesh.mesh_metrics import mesh_metrics
 from subcortexmesh.merge_tools import merge_all
 from subcortexmesh.cifti_metrics import cifti_metrics
 from subcortexmesh.qc_tools import autoqc_outliers, visual_qc_report
+from subcortexmesh.stat_tools import cohortwide_stats
 from tqdm import tqdm
 import time
 import multiprocessing as mp
@@ -38,6 +39,7 @@ def scm_all(
     metric_smooth: tuple[int, int, int] = (0, 5, 5),
     native_meshes: bool = True,
     cifti_dscalar: Optional[str] = None, 
+    cohort_stats_column: Optional[str] = "mean", 
     qc_n_sd: float = 2, 
     qc_outliers: Optional[Union[str, Path, pd.DataFrame]] = None,
     qc_outlier_threshold: int = 3,
@@ -114,8 +116,10 @@ def scm_all(
         the meshes computed in subject space before they are projected to template space 
         (they will contain one scalar for each metric). Default is True. overwrite must 
         be True for this process to be accounted for.
-    cifti_dscalar : str
+    cifti_dscalar : str, optional
         Only for CIFTI data processing: all non cifti-related arguments will be ignored if not None. The specific pattern of the CIFTI file names (.dscalar.nii). These files names differ with the values and processing pipelines, so a suffix e.g "_den-91k_stat-reho_boldmap.dscalar" specifies reho maps are to be extracted. Also requires one metric name (e.g., "reho") specified in the metric argument. The function will not extract multiple values ('reho', 'alff', 'cbf' etc.) so make sure the pattern contains one. Wildcards ".*" are allowed if someone wants to specify a BIDS pattern (e.g., ".*ses-2.*rest.*_den-91k_stat-reho_boldmap.dscalar" ).
+    cohort_stats_column : str, optional
+        Column from the individual statistics tables outputted by mesh_metrics() or cifti_metrics() to be merged in the cohort-wide .csv (will be saved in a "stats/" subdirectory): 'mean', 'sd', 'min', 'max', 'range' or 'n_vert'. Default is 'mean'.
     qc_n_sd : float
         The number of standard deviations from the cohort mean to define subjects as outliers, for each graphical feature value. Default is 2. Used by autoqc_outliers().
     qc_outliers : str, Path, DataFrame, optional
@@ -240,6 +244,31 @@ def scm_all(
                   "to see the worker's error.")
     
     ####################################   
+    #############stat summary###########
+    
+    #prepare folder
+    os.makedirs(f"{outputdir}/stats/", exist_ok=True)
+    
+    #will loop through applicable metrics
+    if isinstance(metric, str):
+        metric=[metric]
+    
+    #add _stats to specify tables to read from
+    stat_metrics = [f"{m}_stats" for m in metric]
+    #will also include the anatomical atlas tables for fsaverage
+    if template=='fsaverage':
+            stat_metrics = stat_metrics + [f"{m}_atlas" for m in stat_metrics]
+    
+    for m_stat in stat_metrics:
+        cohortwide_stats(
+        inputdir=f"{outputdir}/surface_metrics/",
+        table=m_stat, 
+        column=cohort_stats_column,  
+        save=True,
+        outputdir=f"{outputdir}/stats/"
+        )
+    
+    ####################################   
     ################QC##################
     #outliers report (structural only, since CIFTI data is all on the same template surface)
     sub_surf = f"{outputdir}/sub_surfaces/" #only exists if vol2surf ran at all
@@ -255,9 +284,6 @@ def scm_all(
                     continue
                 print(f"Outlier detected for {subid}: {flagged_structures}")
     
-    
-    if isinstance(metric, str):
-        metric=[metric]
     if qc_report_metric_proj is None:
         qc_report_metric_proj=metric[0]
     

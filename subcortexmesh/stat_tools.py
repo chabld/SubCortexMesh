@@ -813,7 +813,7 @@ def cohortwide_stats(
     inputdir: Union[str, Path],
     table: str, 
     column: str = "mean",  
-    save: bool = True,
+    save: bool = False,
     outputdir: Optional[Union[str, Path]] = None,
 ):
     """Cohort-wide descriptive statistics
@@ -831,7 +831,7 @@ def cohortwide_stats(
         (subject folders, each with a stats/ folder inside).
     table : str
         Name of the tables to merge, e.g. 'curvature_stats' or 'curvature_stats_atlas', without
-        the ".txt" extension.
+        the ".txt" extension. If the metric only is given (e.g. 'curvature'), "_stats" will be appended automatically. 
     column : str
         Column from the statistics tables to merge: 'mean', 'sd', 'min', 'max', 'range' or 
         'n_vert'. Default is 'mean'.
@@ -845,6 +845,12 @@ def cohortwide_stats(
     -------
         DataFrame, rows = subjects, columns = regions
     """
+    
+    #anticipating getting the metric name alone instead of _stats.
+    #append _stats_atlas to the table argument's string for the nuclei/atlas results
+    if "_stats" not in table:
+        table=f"{table}_stats"
+    
     series = {}
     for f in sorted(Path(inputdir).glob(f"sub-*/stats/{table}.txt")):
         df = pd.read_csv(f, sep="\t", index_col="label")
