@@ -5,6 +5,7 @@ v1.3.1 (TBC)
 --------------
 - `cohortwide_stats()` is now part of the `scm_all()` pipeline. The argument `cohort_stats_column` in the latter allows users to specify which column of the descriptive stats tables to concatenate across the cohort (default is 'mean'). If the template is 'fsaverage', `scm_all()` will also extract stat tables from the anatomical atlas.
 - `cohortwide_stats()` now allows users to just enter the metric name for the `table` argument (instead of e.g. "thickness_stats". If '_stats' is not found, it will be appended automatically to the string given.
+- `scm_all()` now generates visual report during the parallel jobs themselves instead of after
 
 v1.3.0
 --------------
