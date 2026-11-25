@@ -94,7 +94,7 @@ def mesh_metrics(
     native_meshes: bool, optional
         Whether to save the meshes computed in subject space before they are projected 
         to template space (they will contain one scalar for each metric). Default is 
-        False. overwrite must be True for this process to be accounted for.
+        False.
     overwrite : bool
         Whether files are to be overwritten or skipped if already in outputdir. 
         Default is True.
@@ -178,12 +178,21 @@ def mesh_metrics(
                     continue
                 
                 #check if the file already exists flexibly depending on metrics selected
-                files_exist = all(
-                    os.path.exists(f"{subdir}/{base}_{m}.vtk")
-                    for m in (metric if isinstance(metric, list) else [metric])
-                )
+                metric_list = [metric] if isinstance(metric, str) else list(metric)
+                files_exist = all(os.path.exists(f"{subdir}/{base}_{m}.vtk") for m in metric_list)
                 
-                if not files_exist or overwrite:
+                #native mesh missing, or lacking some of the requested metrics
+                native_path = f"{subdir}/native_space/{base.lower()}_native.vtk"
+                if native_meshes:
+                    if os.path.exists(native_path):
+                        arrays = load_mesh(native_path).GetPointData()
+                        need_native = not all(arrays.HasArray(m) for m in metric_list)
+                    else:
+                        need_native = True
+                else:
+                    need_native = False
+                
+                if not files_exist or overwrite or need_native:
                     ###################################################################################
                     ###############################medial curve building###############################
                     
@@ -214,10 +223,13 @@ def mesh_metrics(
                     #Distance is calculated in native space
                     #will later be "projected" on the template space after measure
                     
-                    if ((not os.path.exists(f"{subdir}/{base}_thickness.vtk")) or overwrite) and 'thickness' in metric:
+                    #check if thickness to be written
+                    save_thickness = ((not os.path.exists(f"{subdir}/{base}_thickness.vtk")) or overwrite) and 'thickness' in metric
+                    
+                    if (save_thickness or need_native) and 'thickness' in metric:
                         if not silent: 
                             print("   Computing thickness...")
-                        getting_thickness=True
+                        getting_thickness = save_thickness
                         #line to rendered as a 3D tube for VTK's implicit distance filter to actually work
                         tube_filter = vtk.vtkTubeFilter()
                         tube_filter.SetInputData(subject_medial_curve)
@@ -265,11 +277,14 @@ def mesh_metrics(
                     #-That is how the ?h.area file is created."
                     #https://www.mail-archive.com/freesurfer@nmr.mgh.harvard.edu/msg29355.html
                     
-                    if ((not os.path.exists(f"{subdir}/{base}_surfarea.vtk")) or overwrite) and 'surfarea' in metric:
+                    #check if surfarea to be written
+                    save_surfarea = ((not os.path.exists(f"{subdir}/{base}_surfarea.vtk")) or overwrite) and 'surfarea' in metric
+                    
+                    if (save_surfarea or need_native) and 'surfarea' in metric:
                         if not silent: 
                             print("   Computing surface area...")
                             
-                        getting_surfarea=True
+                        getting_surfarea=save_surfarea
                         def get_surface_area(subject_mesh):
                             #read vertex coordinates
                             points = subject_mesh.GetPoints()
@@ -331,11 +346,14 @@ def mesh_metrics(
                     #https://vtk.org/doc/nightly/html/classvtkCurvatures.html#details
                     #Inverted to mimick FreeSurfer's norm for the mean curvature (-curvature = convex,                 +curvature=concave) (cf. DOI: 10.1002/hbm.25776 figure 10)
                     
-                    if ((not os.path.exists(f"{subdir}/{base}_curvature.vtk")) or overwrite) and 'curvature' in metric:
+                    #check if curvature to be written
+                    save_curvature = ((not os.path.exists(f"{subdir}/{base}_curvature.vtk")) or overwrite) and 'curvature' in metric
+                    
+                    if (save_curvature or need_native) and 'curvature' in metric:
                         if not silent: 
                             print("   Computing curvature...")
                         
-                        getting_curv=True
+                        getting_curv=save_curvature
                         
                         #get numpy array with vertex-wise mean curvature
                         def get_curv(mesh):
@@ -369,7 +387,7 @@ def mesh_metrics(
                     
                     #If you also want the vertex-wise metrics NOT projected to template space,
                     #you can save the aligned native space mesh (thickness and surfarea scalars attached)
-                    if native_meshes:
+                    if native_meshes and (overwrite or need_native):
                         if not silent: 
                             print(f"   Saving subject-space mesh to {subid}/native_space/...")
                         os.makedirs(f"{subdir}/native_space/", exist_ok=True)
@@ -386,11 +404,17 @@ def mesh_metrics(
                     
                     if not silent: 
                         print("   Printing descriptive statistics...")
+                        
                     #print native-space statistics summary either way
                     print_stats(subdir, subject_mesh, base, metric)
                     
                     ###################################################################################
                     #######################subject-to-template registration############################
+                    
+                    #if only native meshes were missing, this will skip the projection
+                    #step 
+                    if not (getting_thickness or getting_surfarea or getting_curv):
+                        continue
                     
                     #We align the two object's medial curves via rigid rotation (to later improve the native-to-template values projection)
                     if not silent: 

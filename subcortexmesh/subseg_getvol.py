@@ -230,7 +230,7 @@ def subseg_getvol(
                     clean_header['scl_slope'] = 1.0
                     clean_header['scl_inter'] = 0.0
                     
-                    subvol = f"{os.path.dirname(subvol)}/all_fast_firstseg_wcereb.nii.gz"
+                    subvol = f"{os.path.dirname(subvol)}/{subid}_all_fast_firstseg_wcereb.nii.gz"
                     nib.save(nib.Nifti1Image(combined, subvol_img.affine, clean_header), subvol)
             
             if not os.path.exists(f"{T1vol}"):

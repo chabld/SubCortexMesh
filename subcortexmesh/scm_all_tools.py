@@ -40,6 +40,7 @@ def scm_all(
     native_meshes: bool = True,
     cifti_dscalar: Optional[str] = None, 
     cohort_stats_column: Optional[str] = "mean", 
+    qc_check_outliers: bool = True,
     qc_n_sd: float = 2, 
     qc_outliers_table: Optional[Union[str, Path, pd.DataFrame]] = None,
     qc_outlier_threshold: int = 3,
@@ -114,12 +115,13 @@ def scm_all(
     native_meshes : bool, optional
         This option is needed to print a quality check visual report. Whether to save 
         the meshes computed in subject space before they are projected to template space 
-        (they will contain one scalar for each metric). Default is True. overwrite must 
-        be True for this process to be accounted for if the surface_metrics/ folder has already been generated.
+        (they will contain one scalar for each metric). Default is True.
     cifti_dscalar : str, optional
         Only for CIFTI data processing: all non cifti-related arguments will be ignored if not None. The specific pattern of the CIFTI file names (.dscalar.nii). These files names differ with the values and processing pipelines, so a suffix e.g "_den-91k_stat-reho_boldmap.dscalar" specifies reho maps are to be extracted. Also requires one metric name (e.g., "reho") specified in the metric argument. The function will not extract multiple values ('reho', 'alff', 'cbf' etc.) so make sure the pattern contains one. Wildcards ".*" are allowed if someone wants to specify a BIDS pattern (e.g., ".*ses-2.*rest.*_den-91k_stat-reho_boldmap.dscalar" ).
     cohort_stats_column : str, optional
         Column from the individual statistics tables outputted by mesh_metrics() or cifti_metrics() to be merged in the cohort-wide .csv (will be saved in a "stats/" subdirectory): 'mean', 'sd', 'min', 'max', 'range' or 'n_vert'. Default is 'mean'.
+    qc_check_outliers : bool
+        Whether to search for shape outliers in the cohort for every region (using autoqc_outliers()). Default is True.
     qc_n_sd : float
         The number of standard deviations from the cohort mean to define subjects as outliers, for each graphical feature value. Default is 2. Used by autoqc_outliers().
     qc_outliers_table : str, Path, DataFrame, optional
@@ -277,21 +279,22 @@ def scm_all(
     ################QC##################
     #outliers report (structural only, since CIFTI data is all on the same template surface)
     
-    if not silent:
-        print("Identifying outliers for each subject and region...")
-    sub_surf = f"{outputdir}/sub_surfaces/" #only exists if vol2surf ran at all
-    if cifti_dscalar is None and os.path.isdir(sub_surf):
-        flag_df=autoqc_outliers(inputdir=f"{outputdir}/sub_surfaces/",
-                                n_sd=qc_n_sd, 
-                                outputdir=f"{outputdir}/qc/",
-                                silent=True)
+    if qc_check_outliers:
         if not silent:
-            for subid in flag_df.index:
-                flagged_structures = [c for c in flag_df.columns if flag_df.loc[subid, c] >= 3]
-                if not flagged_structures:
-                    continue
-                print(f"Outlier detected for {subid}: {flagged_structures}")
-    
+            print("Identifying outliers for each subject and region...")
+        sub_surf = f"{outputdir}/sub_surfaces/" #only exists if vol2surf ran at all
+        if cifti_dscalar is None and os.path.isdir(sub_surf):
+            flag_df=autoqc_outliers(inputdir=f"{outputdir}/sub_surfaces/",
+                                    n_sd=qc_n_sd, 
+                                    outputdir=f"{outputdir}/qc/",
+                                    silent=True)
+            if not silent:
+                for subid in flag_df.index:
+                    flagged_structures = [c for c in flag_df.columns if flag_df.loc[subid, c] >= 3]
+                    if not flagged_structures:
+                        continue
+                    print(f"Outlier detected for {subid}: {flagged_structures}")
+        
     ####################################   
     ###########Visual report############
     if not silent:
@@ -303,7 +306,7 @@ def scm_all(
         qc_report_metric_proj=metric[0]
     
     job=partial(_visual_report_job, outputdir=outputdir, template=template,      qc_report_metric_proj=qc_report_metric_proj, qc_outliers_table=qc_outliers_table,
-                qc_outlier_threshold=qc_outlier_threshold, qc_report_cols=qc_report_cols, qc_report_rows=qc_report_rows, qc_report_cmap=qc_report_cmap, cifti_dscalar=cifti_dscalar, overwrite=overwrite, silent=silent)
+                qc_outlier_threshold=qc_outlier_threshold, qc_report_cols=qc_report_cols, qc_report_rows=qc_report_rows, qc_report_cmap=qc_report_cmap, cifti_dscalar=cifti_dscalar, sub_list=sub_list, overwrite=overwrite, silent=silent)
     
     try:
         #run one subject per worker
@@ -426,13 +429,17 @@ def _cifti_job(subid, inputdir, outputdir, cifti_dscalar, metric, roilabel,
 
 def _visual_report_job(subid, outputdir, template, qc_report_metric_proj,
                         qc_outliers_table, qc_outlier_threshold, qc_report_cols,
-                        qc_report_rows, qc_report_cmap, cifti_dscalar, 
+                        qc_report_rows, qc_report_cmap, cifti_dscalar, sub_list,
                         overwrite, silent):
     
     with open(f"{outputdir}/logs/job_{subid}.txt", "w") as f, contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
         try:
             if not silent:
                 print(f"Generating visual report for {subid}")
+            
+            #safe guard for odd output names e.g. in FSL FIRST outputs
+            pattern = r'(sub-[\w-]+)'
+            newsubid=re.search(pattern, subid).group(1) 
             
             if cifti_dscalar is None:
                 #FreeSurfer/FSL FIRST
@@ -446,7 +453,7 @@ def _visual_report_job(subid, outputdir, template, qc_report_metric_proj,
                                 cmap=qc_report_cmap,
                                 overwrite=overwrite,
                                 silent=silent,
-                                sub_list=subid)
+                                sub_list=newsubid)
             else:
                 visual_qc_report(inputdir=outputdir, 
                                 template=template,
@@ -457,7 +464,7 @@ def _visual_report_job(subid, outputdir, template, qc_report_metric_proj,
                                 overwrite=overwrite,
                                 silent=silent,
                                 cifti=True,
-                                sub_list=subid)
+                                sub_list=newsubid)
                 
             return (subid, None)
         except Exception:
