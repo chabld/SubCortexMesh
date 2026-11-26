@@ -432,7 +432,7 @@ def _visual_report_job(subid, outputdir, template, qc_report_metric_proj,
                         qc_report_rows, qc_report_cmap, cifti_dscalar, sub_list,
                         overwrite, silent):
     
-    with open(f"{outputdir}/logs/job_{subid}.txt", "w") as f, contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+    with open(f"{outputdir}/logs/job_{subid}.txt", "a") as f, contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
         try:
             if not silent:
                 print(f"Generating visual report for {subid}")
