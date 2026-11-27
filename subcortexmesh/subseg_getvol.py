@@ -248,10 +248,31 @@ def subseg_getvol(
                 movingaseg=ants.image_read(filename=subvol, dimension=3)
                 #applying transformation matrix on the segmentation volume
                 warpedimg=ants.apply_transforms(fixed=fixedT1, moving=movingaseg, transformlist=mytx['fwdtransforms'], interpolator="multiLabel")
-                _ = ants.image_write(warpedimg, f"{antsdir}/{seglabel}_{template}_rigid_coreg.nii.gz")
                 #Save a coregistered T1 too for later surface-to-T1 matching
-                warpedT1 = ants.apply_transforms(fixed=fixedT1, moving=movingT1,
-                transformlist=mytx['fwdtransforms'], interpolator="linear")
+                warpedT1 = ants.apply_transforms(fixed=fixedT1, moving=movingT1, transformlist=mytx['fwdtransforms'], interpolator="linear")
+                
+                #Check grid for accidental cropping and adjust
+                raw_n, out_n = int((movingaseg.numpy() > 0).sum()), int((warpedimg.numpy() > 0).sum())
+                #voxel sizes of raw and template grids
+                raw_vol = raw_n * float(np.prod(movingaseg.spacing))
+                out_vol = out_n * float(np.prod(warpedimg.spacing))
+                lost_frac = 1 - out_vol / raw_vol if raw_vol > 0 else 0
+                
+                if lost_frac > 0.02:   #more than 2% of segmented volume lost
+                    if not silent:
+                        print(f"  => {subid}: {lost_frac*100:.1f}% of the segmentation fell outside the {template} template grid. Re-warping onto a padded grid...")
+                    pad = 25
+                    sp, org, dr = fixedT1.spacing, np.array(fixedT1.origin), np.array(fixedT1.direction)
+                    shape = tuple(int(s) + 2*pad for s in fixedT1.shape)
+                    neworg = org - dr @ (np.array(sp) * pad)
+                    fixed_pad = ants.make_image(shape, voxval=0, spacing=sp, origin=tuple(neworg), direction=dr)
+                    #rewarp with the padded grid
+                    warpedimg=ants.apply_transforms(fixed=fixed_pad, moving=movingaseg, transformlist=mytx['fwdtransforms'], interpolator="multiLabel")
+                    warpedT1=ants.apply_transforms(fixed=fixed_pad, moving=movingT1, transformlist=mytx['fwdtransforms'], interpolator="linear")
+                
+                #Write volumes
+                ants.image_write(warpedT1, f"{antsdir}/T1_{template}_rigid_coreg.nii.gz")
+                _ = ants.image_write(warpedimg, f"{antsdir}/{seglabel}_{template}_rigid_coreg.nii.gz")
                 ants.image_write(warpedT1, f"{antsdir}/T1_{template}_rigid_coreg.nii.gz")
                 
                 #to visualise:
