@@ -137,13 +137,21 @@ def vol2surf(
                     reader.SetFileName(nifti_file)
                     reader.Update()
                     
+                    #pad with background so ROIs touching the image border still get a closed surface
+                    ext = reader.GetOutput().GetExtent()
+                    pad = vtk.vtkImageConstantPad()
+                    pad.SetInputConnection(reader.GetOutputPort())
+                    pad.SetOutputWholeExtent(ext[0]-5, ext[1]+5, ext[2]-5, ext[3]+5, ext[4]-5, ext[5]+5)
+                    pad.SetConstant(0)
+                    pad.Update()
+                    
                     #read volume label (binary masks so only ones)
                     roi_label = int(np.max(nib.load(nifti_file).get_fdata()))
                     
                     #dilate and erode volume to eliminate artefacts
                     if dilate_erode:
                         dilate = vtk.vtkImageDilateErode3D()
-                        dilate.SetInputConnection(reader.GetOutputPort())
+                        dilate.SetInputConnection(pad.GetOutputPort())
                         dilate.SetDilateValue(roi_label)   # grow ROI voxels
                         dilate.SetErodeValue(0)            # background
                         dilate.SetKernelSize(5,5,5)
@@ -157,7 +165,7 @@ def vol2surf(
                         erode.Update()
                         vol=erode
                     else:
-                        vol=reader
+                        vol = pad
                     
                     #Turn volume to surface mesh, keeping voxels' label
                     dmc = vtk.vtkDiscreteMarchingCubes() 
