@@ -14,6 +14,8 @@ import pandas as pd
 import nibabel as nib
 from sklearn.decomposition import PCA
 from subcortexmesh.mesh_metrics import extract_medial_curve
+from scipy.spatial.transform import Rotation
+from scipy import ndimage
 import matplotlib
 import matplotlib.pyplot as mplpyplot
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -763,9 +765,48 @@ def _voxel_surface(flat_mask, dimensions, spacing, origin, flat_values=None, nam
         grid.cell_data[name] = flat_values
     return grid.threshold(0.5, scalars="in_mask").extract_surface(algorithm=None)
 
+#####################################################################################
+#######Subject-to-template alignment (mirrors what mesh_metrics() does)##############
+
+def _curve_points(poly, n=200):
+    """Curve vertices as an array, evenly subsampled to at most n points."""
+    pts = np.array([poly.GetPoint(i) for i in range(poly.GetNumberOfPoints())], dtype=np.float64)
+    return pts if len(pts) <= n else pts[np.linspace(0, len(pts) - 1, n).round().astype(int)]
+
+def _rigid_procrustes(X, Y):
+    """Rotation R and translation t aligning X to Y (no scaling, no mirroring)."""
+    mx, my = X.mean(axis=0), Y.mean(axis=0)
+    U, _, V = np.linalg.svd((X - mx).T @ (Y - my))
+    R = V.T @ U.T
+    if np.linalg.det(R) < 0:
+        V[-1, :] *= -1
+        R = V.T @ U.T
+    if Rotation.from_matrix(R).magnitude() > np.deg2rad(90):
+        R = np.eye(3)
+    return R, my - R @ mx
+
+def _alignment_matrix(native, template_mesh, native_curve, template_curve):
+    """4x4 matrix: medial-curve Procrustes, then ICP (similarity), as in mesh_metrics()."""
+    s, t_ = _curve_points(native_curve), _curve_points(template_curve)
+    m = min(len(s), len(t_))
+    R, t = _rigid_procrustes(s[:m], t_[:m])
+    P = np.eye(4)
+    P[:3, :3], P[:3, 3] = R, t
+    
+    pre = native.copy()
+    pre.points = np.asarray(pre.points, dtype=np.float64) @ R.T + t
+    icp = vtk.vtkIterativeClosestPointTransform()
+    icp.SetSource(pre)
+    icp.SetTarget(template_mesh)
+    icp.GetLandmarkTransform().SetModeToSimilarity()
+    icp.SetMaximumNumberOfIterations(50)
+    icp.Update()
+    I = np.array([[icp.GetMatrix().GetElement(i, j) for j in range(4)] for i in range(4)])
+    return I @ P
+ 
 def _load_region(inputdir, subid, region, metrics, template, silent):
-    """Structural pipeline: volume, subject surface, medial curve and projected metrics, 
-    in the frame of mesh_metrics' meshes. None if the region has no volume or surface."""
+    """Structural pipeline: volume, subject surface, medial curve and projected metrics.
+    The native-space surface, its medial curve and the voxels are aligned in memory to the template mesh (as mesh_metrics() does before projecting), so every panel shares the template's orientation. The saved .vtk files are not modified. None if the region has no volume or surface."""
     volume_dir = f"{inputdir}/sub_volumes/{subid}"
     volume_file = next((f for f in os.listdir(volume_dir) if f.lower() == f"{region}.nii.gz"), None)
     if volume_file is None:
@@ -786,23 +827,45 @@ def _load_region(inputdir, subid, region, metrics, template, silent):
     reader.Update()
     image = pv.wrap(reader.GetOutput())
     labels = np.rint(np.asarray(image.active_scalars)).astype(int).ravel()
-    volume = _voxel_surface(labels == labels.max(), image.dimensions, image.spacing, image.origin)
+    
+    #find components to avoid plotting stray voxels (usually removed by vol coregistration and
+    #not kept by vol2surf())
+    mask = (labels == labels.max()).reshape(image.dimensions, order="F")
+    lab, n = ndimage.label(mask)
+    if n > 1:
+        mask = lab == (np.argmax(np.bincount(lab.ravel())[1:]) + 1)
+    volume = _voxel_surface(mask.flatten(order="F"), image.dimensions, image.spacing, image.origin)
     volume.points = np.asarray(volume.points) @ rotation.T
     volume.clear_data()
     
     #subject surface (already rotated by mesh_metrics, carries the metrics) and its medial curve
     native = pv.read(native_path)
     curve = pv.wrap(extract_medial_curve(native, region, n_slices=100))
+    
+    #Align native space mesh with template mesh to make them match visually
+    #makes sure metrics are available both in subject and template space
+    template_paths = {metric: f"{metric_dir}/{region}_{metric}.vtk" for metric in metrics}
+    available = [m for m in metrics if m in native.point_data and os.path.exists(template_paths[m])]
+    if not available:
+        if not silent:
+            print(f"  => given metrics not found in native space {region}. Use the native_meshes=True argument when generating the surface_metrics/ directory.")
+        return None
+    
+    template_mesh = pv.read(template_paths[available[0]])
+    template_curve = extract_medial_curve(template_mesh, region, n_slices=100)
+    M = _alignment_matrix(native, template_mesh, curve, template_curve)
+    for obj in (native, curve, volume):
+        #same transform for surface, curve and voxels so columns 1-4 stay consistent
+        obj.points = np.asarray(obj.points, dtype=np.float64) @ M[:3, :3].T + M[:3, 3]
+    
     plain = native.copy()
     plain.clear_data()  #no scalars, for the plain colour panels
     
     #one set of panels per metric, when available on the template surface too
     panels = {}
-    for metric in metrics:
-        template_path = f"{metric_dir}/{region}_{metric}.vtk"
-        if metric in native.point_data and os.path.exists(template_path):
-            panels[metric] = [(volume, "flat", 0), (plain, "solid", 0), (plain, "ghost", 0),
-                              (native, "metric", 0), (pv.read(template_path), "metric", 1)]
+    for metric in available:
+        panels[metric] = [(volume, "flat", 0), (plain, "solid", 0), (plain, "ghost", 0),
+                          (native, "metric", 0), (pv.read(template_paths[metric]), "metric", 1)]
     
     #RAS directions to the meshes' frame
     qform = reader.GetQFormMatrix() or reader.GetSFormMatrix()
@@ -830,8 +893,7 @@ def _load_cifti_region(inputdir, subid, region, metrics, template, silent):
         #metric values (NaN outside the region) on the volume's grid, flipped along z like the template meshes
         image = nib.load(volume_path)
         values = np.flip(np.asarray(image.dataobj, dtype=np.float32), axis=2)
-        volume = _voxel_surface(np.isfinite(values).flatten(order="F"), values.shape, (1, 1, 1), (0, 0, 0),
-                                np.nan_to_num(values).flatten(order="F"), metric)
+        volume = _voxel_surface(np.isfinite(values).flatten(order="F"), values.shape, (1, 1, 1), (0, 0, 0), np.nan_to_num(values).flatten(order="F"), metric)
         panels[metric] = [(volume, "metric_flat", 0), (mesh, "metric", 1)]
         
         #RAS directions to voxel-index directions, then flipped along z as well
@@ -839,7 +901,6 @@ def _load_cifti_region(inputdir, subid, region, metrics, template, silent):
             axes = image.affine[:3, :3] / np.linalg.norm(image.affine[:3, :3], axis=0)
             ras_to_mesh = np.diag([1., 1., -1.]) @ np.linalg.inv(axes)
     return dict(R=ras_to_mesh, panels=panels) if panels else None
-
 
 #####################################################################################
 #################Rendering a figure##################################################
