@@ -21,6 +21,7 @@ from functools import partial
 import os
 import re
 import pandas as pd
+import tempfile
 
 #####################################################################################
 ########################Whole SubCortexMesh pipeline#################################
@@ -470,3 +471,37 @@ def _visual_report_job(subid, outputdir, template, qc_report_metric_proj,
         except Exception:
             traceback.print_exc(file=f)
             return (subid, "failed")
+            
+            
+#####################################################################################
+#####################Small function to clear parallel tmp files######################
+
+def clear_scm_tmp(
+    pattern: Optional[str] = None, 
+):
+    """ Clear tmp files used by SubCortexMesh
+    
+    This function removes all tmp files that SubCortexMesh produces in its processing functions, to indicate that subjects are being processed and avoid overlaps when running processes in parallel. Clearing may be required if a process has been interrupted and tmp files remain undeleted. 
+    
+    Parameters
+    ----------
+    pattern : str, optional
+        An optional pattern to only remove tmp files specific to a process instead of all tmp files indiscriminately. This includes : "_vol" (subseg_getvol()), "_surf" (vol2surf()), "_metrics" (mesh_metrics()), "_merge" (merge_all()).
+        
+    """
+    lockdir = os.path.join(tempfile.gettempdir(), "subcortexmesh_processes")
+    
+    if not os.path.isdir(lockdir):
+        return
+    
+    for tmpfile in os.listdir(lockdir):
+        filepath = os.path.join(lockdir, tmpfile)
+        
+        if not os.path.isfile(filepath):
+            continue
+        
+        if pattern is None or pattern in tmpfile:
+            try:
+                os.remove(filepath)
+            except OSError as e:
+                print(f"Could not remove {filepath}: {e}")
